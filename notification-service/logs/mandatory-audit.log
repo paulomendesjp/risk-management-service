@@ -1,82 +1,6 @@
-2025-09-15 13:26:21 🚨 MAX RISK LIMIT TRIGGERED: {
+2025-09-16 10:09:47 🚨 MAX RISK LIMIT TRIGGERED: {
   "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-15T13:26:21.614",
-  "clientId" : "jpmendesnas19",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-15 13:26:21 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-15T13:26:21.705",
-  "clientId" : "jpmendesnas19",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-15 15:39:16 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-15T15:39:16.362",
-  "clientId" : "jpmendesnas19",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-15 15:39:16 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-15T15:39:16.485",
-  "clientId" : "jpmendesnas19",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-15 16:33:35 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-15T16:33:35.878",
-  "clientId" : "jpmendesnas19",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-15 16:33:35 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-15T16:33:35.964",
-  "clientId" : "jpmendesnas19",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-15 19:21:28 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-15T19:21:28.039",
-  "clientId" : "jpmendesnas19",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-15 19:21:28 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-15T19:21:28.103",
-  "clientId" : "jpmendesnas19",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-15 19:21:45 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-15T19:21:45.213",
+  "timestamp" : "2025-09-16T10:09:47.420",
   "clientId" : "jpmendesnas20",
   "currentTotalLoss" : 2.0,
   "maxRiskLimit" : 0.0,
@@ -84,10 +8,48 @@
   "action" : "CLOSE_ALL_POSITIONS",
   "severity" : "CRITICAL"
 }
-2025-09-15 19:21:45 💰 BALANCE UPDATE: {
+2025-09-16 10:09:47 💰 BALANCE UPDATE: {
   "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-15T19:21:45.244",
+  "timestamp" : "2025-09-16T10:09:47.493",
   "clientId" : "jpmendesnas20",
+  "previousBalance" : -2.0,
+  "newBalance" : -2.0,
+  "change" : 0.0,
+  "severity" : "INFO"
+}
+2025-09-16 10:10:01 🚨 MAX RISK LIMIT TRIGGERED: {
+  "event" : "MAX_RISK_TRIGGERED",
+  "timestamp" : "2025-09-16T10:10:01.222",
+  "clientId" : "jpmendesnas20",
+  "currentTotalLoss" : 2.0,
+  "maxRiskLimit" : 0.0,
+  "violationPercentage" : 0,
+  "action" : "CLOSE_ALL_POSITIONS",
+  "severity" : "CRITICAL"
+}
+2025-09-16 10:10:01 💰 BALANCE UPDATE: {
+  "event" : "BALANCE_UPDATE",
+  "timestamp" : "2025-09-16T10:10:01.241",
+  "clientId" : "jpmendesnas20",
+  "previousBalance" : -2.0,
+  "newBalance" : -2.0,
+  "change" : 0.0,
+  "severity" : "INFO"
+}
+2025-09-16 16:32:21 🚨 MAX RISK LIMIT TRIGGERED: {
+  "event" : "MAX_RISK_TRIGGERED",
+  "timestamp" : "2025-09-16T16:32:21.763",
+  "clientId" : "jpmendesnas21",
+  "currentTotalLoss" : 2.0,
+  "maxRiskLimit" : 0.0,
+  "violationPercentage" : 0,
+  "action" : "CLOSE_ALL_POSITIONS",
+  "severity" : "CRITICAL"
+}
+2025-09-16 16:32:22 💰 BALANCE UPDATE: {
+  "event" : "BALANCE_UPDATE",
+  "timestamp" : "2025-09-16T16:32:22.029",
+  "clientId" : "jpmendesnas21",
   "previousBalance" : 0,
   "newBalance" : -2.0,
   "change" : -2.0,

@@ -6,8 +6,8 @@ WORKDIR /app
 COPY pom.xml /app/parent-pom.xml
 
 # Copy service pom and source
-COPY user-service/pom.xml /app/pom.xml
-COPY user-service/src /app/src
+COPY notification-service/pom.xml /app/pom.xml
+COPY notification-service/src /app/src
 
 # Build the application
 RUN mvn clean package -DskipTests
@@ -21,7 +21,7 @@ RUN addgroup -g 1000 appgroup && \
     adduser -D -u 1000 -G appgroup appuser
 
 # Copy JAR from build stage
-COPY --from=builder /app/target/user-service-*.jar app.jar
+COPY --from=builder /app/target/notification-service-*.jar app.jar
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
@@ -31,10 +31,10 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8084/actuator/health || exit 1
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8084
 
 # Run the application
 ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=docker", "app.jar"]
