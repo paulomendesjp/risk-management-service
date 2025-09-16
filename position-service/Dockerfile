@@ -2,15 +2,25 @@
 FROM maven:3.9-amazoncorretto-17 AS builder
 WORKDIR /app
 
-# Copy parent pom first
-COPY pom.xml /app/parent-pom.xml
+# Copy parent pom
+COPY pom.xml /app/
 
-# Copy service pom and source
-COPY position-service/pom.xml /app/pom.xml
-COPY position-service/src /app/src
+# Copy all modules (needed for multi-module build)
+COPY shared-lib/pom.xml /app/shared-lib/
+COPY shared-lib/src /app/shared-lib/src
 
-# Build the application
-RUN mvn clean package -DskipTests
+COPY api-gateway/pom.xml /app/api-gateway/
+COPY user-service/pom.xml /app/user-service/
+COPY position-service/pom.xml /app/position-service/
+COPY risk-monitoring-service/pom.xml /app/risk-monitoring-service/
+COPY notification-service/pom.xml /app/notification-service/
+
+# Copy source for this service
+COPY position-service/src /app/position-service/src
+
+# Build only what we need
+WORKDIR /app
+RUN mvn clean install -DskipTests -pl position-service -am
 
 # Runtime stage
 FROM amazoncorretto:17-alpine
@@ -21,7 +31,7 @@ RUN addgroup -g 1000 appgroup && \
     adduser -D -u 1000 -G appgroup appuser
 
 # Copy JAR from build stage
-COPY --from=builder /app/target/position-service-*.jar app.jar
+COPY --from=builder /app/position-service/target/position-service-*.jar app.jar
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
