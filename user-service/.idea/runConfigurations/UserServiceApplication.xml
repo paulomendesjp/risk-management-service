@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="UserServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="user-service" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.interview.challenge.user.UserServiceApplication" />
+    <option name="ALTERNATIVE_JRE_PATH" />
+    <option name="SHORTEN_COMMAND_LINE" value="NONE" />
+    <additionalParameters>
+      <param>
+        <option name="enabled" value="true" />
+        <option name="name" value="spring.profiles.active" />
+        <option name="value" value="local" />
+      </param>
+    </additionalParameters>
+    <classpathModifications>
+      <entry path="/Users/joaopaulomendes/springboot-interview/shared-lib/target/classes" />
+      <entry path="/Users/joaopaulomendes/springboot-interview/shared-lib/target/shared-lib-1.0.0-SNAPSHOT.jar" />
+    </classpathModifications>
+    <method v="2">
+      <option name="Make" enabled="true" />
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Build Shared Lib" run_configuration_type="MavenRunConfiguration" />
+    </method>
+  </configuration>
+</component>

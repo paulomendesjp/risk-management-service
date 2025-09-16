@@ -1,0 +1,225 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: position-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # Security Configuration - Simple auth for testing
+  security:
+    user:
+      name: admin
+      password: admin
+      roles: ADMIN
+
+  # MongoDB and Redis Configuration
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/risk_management}
+      auto-index-creation: true
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:password123}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+        default-requeue-rejected: false
+        acknowledge-mode: auto
+    template:
+      retry:
+        enabled: true
+        initial-interval: 1000
+        max-attempts: 3
+        max-interval: 10000
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+  show-actuator: true
+
+# Architect.co API Configuration
+architect:
+  api:
+    endpoint: ${ARCHITECT_API_ENDPOINT:https://app.architect.co}
+    default-api-key: ${ARCHITECT_API_KEY:fwWd6XdmavqKxTKBLJRuty3Q}
+    default-api-secret: ${ARCHITECT_API_SECRET:AA4nQZNwUWy7dyHxz6fV2MJZk3ky91Mr2j4jiKd7oani}
+    paper-trading: ${ARCHITECT_PAPER_TRADING:true}
+    connection:
+      timeout: 30000
+      read-timeout: 60000
+      retry-attempts: 3
+      retry-delay: 1000
+    rate-limit:
+      requests-per-second: 10
+      burst-capacity: 20
+  bridge:
+    endpoint: ${ARCHITECT_BRIDGE_ENDPOINT:http://localhost:8090}
+
+# Trading Configuration
+trading:
+  order:
+    default-timeout: 30000
+    fill-check-interval: 1000
+    max-fill-attempts: 30
+  position:
+    close-timeout: 30000
+    batch-size: 10
+  stop-loss:
+    price-buffer: 0.001
+    default-percentage: 2.0
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      architect-api:
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10000
+        automatic-transition-from-open-to-half-open-enabled: true
+      position-close:
+        sliding-window-size: 5
+        failure-rate-threshold: 60
+        wait-duration-in-open-state: 5000
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    circuitbreakers:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.position: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.data.mongodb: INFO
+    org.springframework.cloud.openfeign: DEBUG
+    feign: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{clientId},%X{traceId}] %logger{36} - %msg%n"
+
+# Application Info
+info:
+  app:
+    name: Position Management Service
+    description: Trading position and order management service
+    version: 3.0.0
+    environment: ${spring.profiles.active}
+
+---
+# Local Development Profile
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: DEBUG
+
+architect:
+  api:
+    endpoint: https://app.architect.co
+  bridge:
+    endpoint: http://localhost:8090
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  # Use Docker service names
+  data:
+    mongodb:
+      uri: mongodb://admin:password123@mongodb:27017/risk_management?authSource=admin
+    redis:
+      host: redis
+  rabbitmq:
+    host: rabbitmq
+    username: admin
+    password: password123
+
+architect:
+  bridge:
+    endpoint: http://architect-bridge:8090
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+logging:
+  level:
+    root: WARN
+    com.interview.challenge: INFO
+
+# Production-specific settings
+architect:
+  api:
+    paper-trading: false
+    rate-limit:
+      requests-per-second: 5
+      burst-capacity: 10
+
+trading:
+  order:
+    default-timeout: 30000
+    max-fill-attempts: 20
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

@@ -1,0 +1,149 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  # MongoDB Configuration
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://admin:password123@localhost:27017/risk_management?authSource=admin}
+      auto-index-creation: true
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:password123}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+        default-requeue-rejected: false
+        acknowledge-mode: auto
+
+  # Security Configuration
+  security:
+    user:
+      name: admin
+      password: admin
+      roles: ADMIN
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+  show-actuator: true
+
+# Jasypt Encryption Configuration
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:mySecretKey}
+    algorithm: PBEWithMD5AndDES
+    key-obtention-iterations: 1000
+    pool-size: 1
+    provider-name: SunJCE
+    salt-generator-classname: org.jasypt.salt.RandomSaltGenerator
+    string-output-type: base64
+
+# Architect API Configuration
+architect:
+  api:
+    endpoint: ${ARCHITECT_API_ENDPOINT:https://app.architect.co}
+    validation:
+      timeout: 5000
+      retry-attempts: 2
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.user: DEBUG
+    org.springframework.data.mongodb: INFO
+    org.springframework.amqp: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{clientId}] %logger{36} - %msg%n"
+
+# Management Endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Application Info
+info:
+  app:
+    name: User Management Service
+    description: Client registration and risk configuration service
+    version: 1.0.0
+    environment: ${spring.profiles.active}
+
+---
+# Local Development Profile
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: DEBUG
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  data:
+    mongodb:
+      uri: mongodb://admin:password123@mongodb:27017/risk_management?authSource=admin
+
+  rabbitmq:
+    host: rabbitmq
+    username: admin
+    password: password123
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+logging:
+  level:
+    root: WARN
+    com.interview.challenge: INFO
+
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false

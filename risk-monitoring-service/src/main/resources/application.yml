@@ -1,0 +1,65 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: risk-monitoring-service
+  data:
+    mongodb:
+      uri: mongodb://admin:password123@localhost:27017/risk_management?authSource=admin
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: admin
+    password: password123
+
+# Service Integration URLs
+user:
+  service:
+    url: http://localhost:8081
+
+position:
+  service:
+    url: http://localhost:8082
+
+architect:
+  bridge:
+    endpoint: http://localhost:8000
+
+# Risk Monitoring Configuration
+risk:
+  monitoring:
+    balance-check-interval: 30000
+    risk-check-interval: 60000
+    max-retry-attempts: 3
+    daily-reset-time: "09:00"
+    max-concurrent-checks: 10
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.risk: DEBUG
+    org.springframework.web: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# Feign Configuration
+feign:
+  client:
+    config:
+      default:
+        connectTimeout: 5000
+        readTimeout: 10000
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true

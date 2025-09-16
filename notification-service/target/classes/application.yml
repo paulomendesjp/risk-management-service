@@ -1,0 +1,90 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  
+  # MongoDB Configuration
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://admin:password123@localhost:27017/risk_management?authSource=admin}
+      
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:password123}
+    
+  # Email Configuration
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Notification Configuration
+notification:
+  # Email settings
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:false}
+    from: ${NOTIFICATION_EMAIL_FROM:noreply@riskmanagement.com}
+    to: ${NOTIFICATION_EMAIL_TO:admin@riskmanagement.com}
+    subject:
+      prefix: ${NOTIFICATION_EMAIL_SUBJECT_PREFIX:[RISK ALERT]}
+  
+  # Slack settings
+  slack:
+    enabled: ${NOTIFICATION_SLACK_ENABLED:false}
+    webhook:
+      url: ${NOTIFICATION_SLACK_WEBHOOK_URL:}
+    channel: ${NOTIFICATION_SLACK_CHANNEL:#risk-alerts}
+    username: ${NOTIFICATION_SLACK_USERNAME:Risk Management Bot}
+  
+  # WebSocket settings
+  websocket:
+    enabled: ${NOTIFICATION_WEBSOCKET_ENABLED:true}
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.notification: DEBUG
+    org.springframework.amqp: INFO
+    org.springframework.messaging: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/notification-service.log
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+---
+# Docker profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+  data:
+    mongodb:
+      uri: mongodb://admin:password123@mongodb:27017/risk_management?authSource=admin
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: admin
+    password: password123

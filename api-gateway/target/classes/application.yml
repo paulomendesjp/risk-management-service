@@ -1,0 +1,356 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  main:
+    allow-bean-definition-overriding: true
+    web-application-type: reactive
+
+  # Redis Configuration for caching and rate limiting
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+  # Cloud Gateway Configuration
+  cloud:
+    gateway:
+      # Global CORS configuration
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - X-Request-ID
+            allowCredentials: false
+            maxAge: 3600
+
+      # Default filters applied to all routes
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 100  # tokens per second
+            redis-rate-limiter.burstCapacity: 200  # max tokens in bucket
+            redis-rate-limiter.requestedTokens: 1   # tokens per request
+            key-resolver: "#{@userKeyResolver}"
+
+        - name: AddRequestHeader
+          args:
+            name: X-Request-Gateway
+            value: api-gateway
+
+        - name: AddResponseHeader
+          args:
+            name: X-Response-Gateway
+            value: api-gateway
+
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials
+
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,GATEWAY_TIMEOUT,SERVICE_UNAVAILABLE
+            methods: GET,POST,PUT,DELETE
+            backoff:
+              firstBackoff: 50ms
+              maxBackoff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+
+      # Route Configuration
+      routes:
+        # User Management Service Routes
+        - id: user-service
+          uri: ${services.user-service.url:http://user-service:8080}
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: user-service-cb
+                fallbackUri: forward:/fallback/user-service
+
+        # Risk Monitoring Service Routes
+        - id: risk-monitoring-service
+          uri: ${services.risk-monitoring.url:http://risk-monitoring-service:8080}
+          predicates:
+            - Path=/api/risk/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: risk-monitoring-cb
+                fallbackUri: forward:/fallback/risk-monitoring
+
+        # Position Management Service Routes
+        - id: position-service
+          uri: ${services.position-service.url:http://position-service:8080}
+          predicates:
+            - Path=/api/positions/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: position-service-cb
+                fallbackUri: forward:/fallback/position-service
+
+        # Notification Service Routes
+        - id: notification-service
+          uri: ${services.notification-service.url:http://notification-service:8080}
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notification-service-cb
+                fallbackUri: forward:/fallback/notification-service
+
+        # WebSocket routes for real-time updates
+        - id: websocket-risk
+          uri: ${services.risk-monitoring.ws-url:ws://risk-monitoring-service:8080}
+          predicates:
+            - Path=/ws/risk/**
+
+        - id: websocket-notifications
+          uri: ${services.notification-service.ws-url:ws://notification-service:8080}
+          predicates:
+            - Path=/ws/notifications/**
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        registerHealthIndicator: true
+    instances:
+      user-service-cb:
+        baseConfig: default
+      risk-monitoring-cb:
+        baseConfig: default
+      position-service-cb:
+        baseConfig: default
+      notification-service-cb:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+    instances:
+      user-service-cb:
+        baseConfig: default
+      risk-monitoring-cb:
+        baseConfig: default
+      position-service-cb:
+        baseConfig: default
+      notification-service-cb:
+        baseConfig: default
+
+# Microservices URLs
+services:
+  user-service:
+    url: ${USER_SERVICE_URL:http://user-service:8080}
+  risk-monitoring:
+    url: ${RISK_MONITORING_SERVICE_URL:http://risk-monitoring-service:8080}
+    ws-url: ${RISK_MONITORING_WS_URL:ws://risk-monitoring-service:8080}
+  position-service:
+    url: ${POSITION_SERVICE_URL:http://position-service:8080}
+  notification-service:
+    url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8080}
+    ws-url: ${NOTIFICATION_WS_URL:ws://notification-service:8080}
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:mySecretKey123456789012345678901234567890}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+  header: Authorization
+  prefix: "Bearer "
+
+# Rate Limiting Configuration
+rate-limit:
+  default:
+    requests-per-minute: 1000
+    burst-capacity: 100
+  client-specific:
+    premium:
+      requests-per-minute: 5000
+      burst-capacity: 500
+    basic:
+      requests-per-minute: 500
+      burst-capacity: 50
+
+# Security Configuration
+security:
+  ignored-paths:
+    - /actuator/**
+    - /api/users/register
+    - /api/users/login
+    - /api/health
+    - /gateway/health
+    - /favicon.ico
+    - /swagger-ui/**
+    - /v3/api-docs/**
+    - /fallback/**
+
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:8080
+      - https://trading-dashboard.com
+    allowed-methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers:
+      - Authorization
+      - Content-Type
+      - X-Client-ID
+      - X-Request-ID
+    max-age: 3600
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway,circuitbreakers
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+    gateway:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+  health:
+    circuitbreakers:
+      enabled: true
+    redis:
+      enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.gateway: DEBUG
+    org.springframework.cloud.gateway: INFO
+    org.springframework.security: INFO
+    reactor.netty.http.client: INFO
+    io.github.resilience4j: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n"
+
+# Application Info
+info:
+  app:
+    name: Trading Risk Management API Gateway
+    description: Central entry point for all microservices
+    version: 1.0.0
+    environment: ${spring.profiles.active}
+
+---
+# Local Development Profile
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+
+services:
+  user-service:
+    url: http://localhost:8081
+  risk-monitoring:
+    url: http://localhost:8082
+    ws-url: ws://localhost:8082
+  position-service:
+    url: http://localhost:8083
+  notification-service:
+    url: http://localhost:8084
+    ws-url: ws://localhost:8084
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+logging:
+  level:
+    root: INFO
+    com.interview.challenge: INFO
+
+# Use service names for Docker networking
+services:
+  user-service:
+    url: http://user-service:8080
+  risk-monitoring:
+    url: http://risk-monitoring-service:8080
+    ws-url: ws://risk-monitoring-service:8080
+  position-service:
+    url: http://position-service:8080
+  notification-service:
+    url: http://notification-service:8080
+    ws-url: ws://notification-service:8080
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+logging:
+  level:
+    root: WARN
+    com.interview.challenge: INFO
+
+# Production rate limits (more restrictive)
+rate-limit:
+  default:
+    requests-per-minute: 500
+    burst-capacity: 50
+  client-specific:
+    premium:
+      requests-per-minute: 2000
+      burst-capacity: 200
+    basic:
+      requests-per-minute: 200
+      burst-capacity: 20
