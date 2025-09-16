@@ -69,45 +69,6 @@ services:
 
   # ================== Microservices ==================
 
-  # API Gateway - Main entry point
-  api-gateway:
-    build:
-      context: .
-      dockerfile: ./api-gateway/Dockerfile
-    container_name: api-gateway
-    restart: unless-stopped
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      USER_SERVICE_URL: http://user-service:8080
-      RISK_MONITORING_SERVICE_URL: http://risk-monitoring-service:8080
-      POSITION_SERVICE_URL: http://position-service:8080
-      NOTIFICATION_SERVICE_URL: http://notification-service:8080
-      JWT_SECRET: mySecretKey123456789012345678901234567890
-      JWT_EXPIRATION: 86400000
-    ports:
-      - "8080:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-      risk-monitoring-service:
-        condition: service_healthy
-      position-service:
-        condition: service_healthy
-      notification-service:
-        condition: service_healthy
-    networks:
-      - risk-management-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
   # User Management Service
   user-service:
     build:
@@ -126,8 +87,9 @@ services:
       REDIS_PORT: 6379
       JWT_SECRET: mySecretKey123456789012345678901234567890
       JWT_EXPIRATION: 86400000
+      ARCHITECT_BRIDGE_ENDPOINT: http://architect-bridge:8090
     ports:
-      - "8081:8080"
+      - "8081:8081"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -136,7 +98,7 @@ services:
     networks:
       - risk-management-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -165,7 +127,7 @@ services:
       POSITION_SERVICE_URL: http://position-service:8080
       NOTIFICATION_SERVICE_URL: http://notification-service:8080
     ports:
-      - "8082:8080"
+      - "8082:8083"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -176,7 +138,7 @@ services:
     networks:
       - risk-management-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -205,7 +167,7 @@ services:
       RISK_MONITORING_SERVICE_URL: http://risk-monitoring-service:8080
       NOTIFICATION_SERVICE_URL: http://notification-service:8080
     ports:
-      - "8083:8080"
+      - "8083:8082"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -216,7 +178,7 @@ services:
     networks:
       - risk-management-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -250,7 +212,7 @@ services:
       # Slack settings (update with real webhook)
       SLACK_WEBHOOK_URL: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
     ports:
-      - "8084:8080"
+      - "8084:8084"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -261,13 +223,13 @@ services:
     networks:
       - risk-management-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
 
-  # Architect Bridge Service - Python WebSocket Bridge
+    # Architect Bridge Service - Python WebSocket Bridge
   architect-bridge:
     build:
       context: ./architect-bridge
@@ -276,22 +238,23 @@ services:
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: 1
-      # Connect to Risk Monitoring Service WebSocket
-      JAVA_WEBSOCKET_URL: ws://risk-monitoring-service:8080/python-bridge
+      # Java Risk Service connection (update when running locally)
+      JAVA_WEBSOCKET_URL: ws://host.docker.internal:8083/python-bridge
+      # Logging configuration
       LOG_LEVEL: INFO
     ports:
       - "8090:8090"
-    depends_on:
-      risk-monitoring-service:
-        condition: service_healthy
     networks:
       - risk-management-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Para conectar com serviços Java locais
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
       start_period: 40s
+
 
   # ================== Monitoring (Optional) ==================
 

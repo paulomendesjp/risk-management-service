@@ -20,8 +20,14 @@ public class OpenApiConfig {
     @Value("${server.port:8082}")
     private String serverPort;
 
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
+
     @Bean
     public OpenAPI positionServiceOpenAPI() {
+        // For Docker, use external port mapping
+        String externalPort = "docker".equals(activeProfile) ? "8083" : serverPort;
+
         return new OpenAPI()
                 .info(new Info()
                         .title("Position Service API")
@@ -35,11 +41,8 @@ public class OpenApiConfig {
                                 .url("http://springdoc.org")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:" + serverPort)
-                                .description("Local Development Server"),
-                        new Server()
-                                .url("http://position-service:" + serverPort)
-                                .description("Docker Container")
+                                .url("http://localhost:" + externalPort)
+                                .description("External Access")
                 ));
     }
 }

@@ -184,6 +184,7 @@ spring:
     username: admin
     password: password123
 
+
 architect:
   bridge:
     endpoint: http://architect-bridge:8090

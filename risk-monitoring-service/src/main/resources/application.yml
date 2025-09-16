@@ -63,3 +63,33 @@ springdoc:
     operations-sorter: method
     tags-sorter: alpha
     display-request-duration: true
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  data:
+    mongodb:
+      uri: mongodb://admin:password123@mongodb:27017/risk_management?authSource=admin
+
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: admin
+    password: password123
+
+user:
+  service:
+    url: http://user-service:8081
+
+position:
+  service:
+    url: http://position-service:8080
+
+architect:
+  bridge:
+    endpoint: http://architect-bridge:8090
+

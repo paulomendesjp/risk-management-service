@@ -18,7 +18,7 @@ COPY notification-service/pom.xml /app/notification-service/
 
 # Build only what we need
 WORKDIR /app
-RUN mvn clean install -DskipTests -pl api-gateway -am
+RUN mvn clean package spring-boot:repackage -DskipTests -pl api-gateway -am
 
 # Runtime stage
 FROM amazoncorretto:17-alpine

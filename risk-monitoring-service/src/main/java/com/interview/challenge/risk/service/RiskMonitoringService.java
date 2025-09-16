@@ -56,6 +56,9 @@ public class RiskMonitoringService {
 
     private static final Logger logger = LoggerFactory.getLogger(RiskMonitoringService.class);
 
+    @Value("${architect.bridge.endpoint:http://localhost:8090}")
+    private String architectBridgeEndpoint;
+
     @Autowired
     private AccountMonitoringRepository accountMonitoringRepository;
 
@@ -559,7 +562,7 @@ public class RiskMonitoringService {
                 return false;
             }
 
-            String bridgeUrl = RiskConstants.PYTHON_BRIDGE_BASE_URL + RiskConstants.START_MONITORING_ENDPOINT + clientId;
+            String bridgeUrl = architectBridgeEndpoint + RiskConstants.START_MONITORING_ENDPOINT + clientId;
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.set("X-API-Key", clientConfig.getApiKey());
@@ -587,7 +590,7 @@ public class RiskMonitoringService {
         try {
             logger.info("🚀 Starting real-time WebSocket monitoring for client: {} with provided credentials", clientId);
 
-            String bridgeUrl = RiskConstants.PYTHON_BRIDGE_BASE_URL + RiskConstants.START_MONITORING_ENDPOINT + clientId;
+            String bridgeUrl = architectBridgeEndpoint + RiskConstants.START_MONITORING_ENDPOINT + clientId;
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             // Python Bridge expects lowercase headers with hyphens
@@ -621,7 +624,7 @@ public class RiskMonitoringService {
      */
     public boolean stopRealTimeMonitoring(String clientId) {
         try {
-            String bridgeUrl = RiskConstants.PYTHON_BRIDGE_BASE_URL + RiskConstants.STOP_MONITORING_ENDPOINT + clientId;
+            String bridgeUrl = architectBridgeEndpoint + RiskConstants.STOP_MONITORING_ENDPOINT + clientId;
             org.springframework.http.ResponseEntity<Map> response = restTemplate.postForEntity(
                 bridgeUrl, null, Map.class
             );

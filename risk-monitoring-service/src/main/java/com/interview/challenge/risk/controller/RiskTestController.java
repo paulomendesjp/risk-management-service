@@ -21,6 +21,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/risk/test")
+@CrossOrigin(origins = "*")
 public class RiskTestController {
 
     private static final Logger logger = LoggerFactory.getLogger(RiskTestController.class);

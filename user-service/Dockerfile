@@ -5,20 +5,21 @@ WORKDIR /app
 # Copy parent pom
 COPY pom.xml /app/
 
-# Copy all modules (needed for multi-module build)
+# Copy all module POMs first for better caching
 COPY shared-lib/pom.xml /app/shared-lib/
-COPY shared-lib/src /app/shared-lib/src
-
 COPY api-gateway/pom.xml /app/api-gateway/
 COPY user-service/pom.xml /app/user-service/
-COPY user-service/src /app/user-service/src
 COPY position-service/pom.xml /app/position-service/
 COPY risk-monitoring-service/pom.xml /app/risk-monitoring-service/
 COPY notification-service/pom.xml /app/notification-service/
 
+# Copy source code
+COPY shared-lib/src /app/shared-lib/src
+COPY user-service/src /app/user-service/src
+
 # Build only what we need
 WORKDIR /app
-RUN mvn clean install -DskipTests -pl user-service -am
+RUN mvn clean package spring-boot:repackage -DskipTests -pl user-service -am
 
 # Runtime stage
 FROM amazoncorretto:17-alpine

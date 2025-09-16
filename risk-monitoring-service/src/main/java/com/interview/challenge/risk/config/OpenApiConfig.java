@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.util.List;
 
@@ -23,8 +24,14 @@ public class OpenApiConfig {
     @Value("${server.port:8083}")
     private String serverPort;
 
+    @Value("${spring.profiles.active:local}")
+    private String activeProfile;
+
     @Bean
     public OpenAPI riskMonitoringServiceOpenAPI() {
+        // For Docker, use external port mapping
+        String externalPort = "docker".equals(activeProfile) ? "8082" : serverPort;
+
         return new OpenAPI()
                 .info(new Info()
                         .title("Risk Monitoring Service API")
@@ -38,11 +45,8 @@ public class OpenApiConfig {
                                 .url("http://springdoc.org")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:" + serverPort)
-                                .description("Local Development Server"),
-                        new Server()
-                                .url("http://risk-monitoring-service:" + serverPort)
-                                .description("Docker Container")
+                                .url("http://localhost:" + externalPort)
+                                .description("External Access")
                 ))
                 .addSecurityItem(new SecurityRequirement().addList("apiKey"))
                 .components(new Components()

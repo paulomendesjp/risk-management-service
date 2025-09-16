@@ -3,6 +3,7 @@ package com.interview.challenge.user.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +19,10 @@ import java.util.Map;
 public class MonitoringIntegrationService {
 
     private static final Logger logger = LoggerFactory.getLogger(MonitoringIntegrationService.class);
-    
+
+    @Value("${architect.bridge.endpoint:http://localhost:8090}")
+    private String architectBridgeEndpoint;
+
     @Autowired
     private UserService userService;
     
@@ -33,7 +37,7 @@ public class MonitoringIntegrationService {
             Map<String, String> credentials = userService.getDecryptedCredentials(clientId);
             
             // Call Python Bridge to start monitoring
-            String pythonBridgeUrl = "http://localhost:8090/start-monitoring/" + clientId;
+            String pythonBridgeUrl = architectBridgeEndpoint + "/start-monitoring/" + clientId;
             
             // Use RestTemplate to call Python Bridge
             RestTemplate restTemplate = new RestTemplate();
@@ -68,7 +72,7 @@ public class MonitoringIntegrationService {
             logger.info("🛑 Stopping monitoring for client: {}", clientId);
             
             // Call Python Bridge to stop monitoring
-            String pythonBridgeUrl = "http://localhost:8090/stop-monitoring/" + clientId;
+            String pythonBridgeUrl = architectBridgeEndpoint + "/stop-monitoring/" + clientId;
             
             RestTemplate restTemplate = new RestTemplate();
             

@@ -69,6 +69,8 @@ architect:
     validation:
       timeout: 5000
       retry-attempts: 2
+  bridge:
+    endpoint: ${ARCHITECT_BRIDGE_ENDPOINT:http://localhost:8090}
 
 # Logging Configuration
 logging:

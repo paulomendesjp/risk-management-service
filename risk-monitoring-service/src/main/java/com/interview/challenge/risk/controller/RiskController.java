@@ -16,6 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/risk")
+@CrossOrigin(origins = "*")
 public class RiskController {
 
     private static final Logger logger = LoggerFactory.getLogger(RiskController.class);

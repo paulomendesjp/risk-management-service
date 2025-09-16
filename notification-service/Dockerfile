@@ -20,7 +20,7 @@ COPY notification-service/src /app/notification-service/src
 
 # Build only what we need
 WORKDIR /app
-RUN mvn clean install -DskipTests -pl notification-service -am
+RUN mvn clean package spring-boot:repackage -DskipTests -pl notification-service -am
 
 # Runtime stage
 FROM amazoncorretto:17-alpine
