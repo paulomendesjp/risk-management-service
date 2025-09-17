@@ -29,8 +29,9 @@ architect:
 # Risk Monitoring Configuration
 risk:
   monitoring:
-    balance-check-interval: 30000
-    risk-check-interval: 60000
+    balance-check-interval: 30000      # Deprecated - kept for compatibility
+    risk-check-interval: 60000         # Periodic risk check interval (ms)
+    balance-poll-interval: 30000       # Balance polling interval from architect-bridge (ms)
     max-retry-attempts: 3
     daily-reset-time: "09:00"
     max-concurrent-checks: 10

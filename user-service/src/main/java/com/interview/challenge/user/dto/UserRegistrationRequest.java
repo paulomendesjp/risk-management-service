@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import java.math.BigDecimal;
 
 /**
  * User Registration Request DTO
@@ -32,6 +34,9 @@ public class UserRegistrationRequest {
     @Valid
     @NotNull(message = "Daily Risk configuration is required")
     private RiskLimitDto dailyRisk;
+
+    @PositiveOrZero(message = "Initial balance must be positive or zero")
+    private BigDecimal initialBalance;  // Optional: if not provided, fetches from Architect
 
     // Constructors
     public UserRegistrationRequest() {}
@@ -84,6 +89,14 @@ public class UserRegistrationRequest {
 
     public void setDailyRisk(RiskLimitDto dailyRisk) {
         this.dailyRisk = dailyRisk;
+    }
+
+    public BigDecimal getInitialBalance() {
+        return initialBalance;
+    }
+
+    public void setInitialBalance(BigDecimal initialBalance) {
+        this.initialBalance = initialBalance;
     }
 
     /**

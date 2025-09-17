@@ -333,15 +333,15 @@ public class RiskMonitoringService {
     @Scheduled(fixedDelayString = "${risk.monitoring.risk-check-interval:60000}")
     public void performPeriodicRiskCheck() {
         logger.debug("Starting periodic risk check for all accounts");
-        
+
         try {
             LocalDateTime cutoffTime = LocalDateTime.now().minusSeconds(riskCheckInterval / 1000);
-            List<AccountMonitoring> accountsToCheck = 
+            List<AccountMonitoring> accountsToCheck =
                 accountMonitoringRepository.findAccountsNeedingRiskCheck(cutoffTime);
-            
+
             if (!accountsToCheck.isEmpty()) {
                 logger.debug("Found {} accounts needing risk check", accountsToCheck.size());
-                
+
                 // Process accounts in batches to avoid overwhelming the system
                 accountsToCheck.stream()
                     .limit(maxConcurrentChecks)
@@ -350,18 +350,90 @@ public class RiskMonitoringService {
                             // Get client configuration for API credentials
                             ClientConfiguration config = getClientConfiguration(monitoring.getClientId());
                             if (config != null && config.getApiKey() != null) {
-                                updateBalanceAndCheckRisk(monitoring.getClientId(), 
+                                updateBalanceAndCheckRisk(monitoring.getClientId(),
                                     config.getApiKey(), config.getApiSecret());
                             }
                         } catch (Exception e) {
-                            logger.error("Error in periodic risk check for client {}: {}", 
+                            logger.error("Error in periodic risk check for client {}: {}",
                                        monitoring.getClientId(), e.getMessage());
                         }
                     });
             }
-            
+
         } catch (Exception e) {
             logger.error("Error during periodic risk check: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 💰 PERIODIC BALANCE POLLING FROM ARCHITECT-BRIDGE
+     * Polls architect-bridge API to get real-time balance updates
+     * Replaces WebSocket streaming with scheduled polling
+     */
+    @Scheduled(fixedDelayString = "${risk.monitoring.balance-poll-interval:30000}")
+    public void performPeriodicBalancePoll() {
+        logger.info("💰 Starting periodic balance polling from architect-bridge");
+
+        try {
+            // Get all active monitoring accounts
+            List<AccountMonitoring> activeAccounts = accountMonitoringRepository.findAll().stream()
+                .filter(AccountMonitoring::canTrade)
+                .limit(maxConcurrentChecks)
+                .toList();
+
+            logger.debug("Found {} active accounts to poll balances", activeAccounts.size());
+
+            for (AccountMonitoring monitoring : activeAccounts) {
+                try {
+                    String clientId = monitoring.getClientId();
+
+                    // Get client configuration for API credentials
+                    ClientConfiguration config = getClientConfiguration(clientId);
+                    if (config == null || config.getApiKey() == null) {
+                        logger.warn("No configuration found for client {}, skipping balance poll", clientId);
+                        continue;
+                    }
+
+                    logger.debug("📊 Polling balance for client {}", clientId);
+
+                    // Poll balance from architect-bridge via ArchitectApiService
+                    ArchitectBalanceResponse balanceResponse = architectApiService.getAccountBalance(
+                        config.getApiKey(), config.getApiSecret());
+
+                    if (balanceResponse != null && balanceResponse.getTotalBalance() != null) {
+                        BigDecimal newBalance = balanceResponse.getTotalBalance();
+                        BigDecimal previousBalance = monitoring.getCurrentBalance();
+
+                        // Check if balance has changed
+                        if (previousBalance == null || newBalance.compareTo(previousBalance) != 0) {
+                            logger.info("💵 Balance change detected for client {}: {} -> {}",
+                                      clientId, previousBalance, newBalance);
+
+                            // Create balance update event
+                            BalanceUpdateEvent balanceUpdate = new BalanceUpdateEvent();
+                            balanceUpdate.setClientId(clientId);
+                            balanceUpdate.setNewBalance(newBalance);
+                            balanceUpdate.setPreviousBalance(previousBalance);
+                            balanceUpdate.setSource("polling");
+                            balanceUpdate.setTimestamp(LocalDateTime.now());
+
+                            // Process the balance update
+                            processBalanceUpdate(balanceUpdate);
+                        } else {
+                            logger.trace("No balance change for client {}", clientId);
+                        }
+                    }
+
+                } catch (Exception e) {
+                    logger.error("Error polling balance for client {}: {}",
+                               monitoring.getClientId(), e.getMessage());
+                }
+            }
+
+            logger.debug("✅ Completed periodic balance polling");
+
+        } catch (Exception e) {
+            logger.error("Error during periodic balance poll: {}", e.getMessage(), e);
         }
     }
 

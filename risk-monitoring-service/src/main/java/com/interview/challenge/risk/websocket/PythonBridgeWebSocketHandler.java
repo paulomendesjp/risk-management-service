@@ -15,12 +15,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 🐍 PYTHON BRIDGE WEBSOCKET HANDLER
+ * 🐍 PYTHON BRIDGE WEBSOCKET HANDLER [DISABLED]
  *
- * Handles WebSocket connections FROM Python Bridge TO Java Risk Service
- * This enables real-time communication between Python and Java
+ * DEPRECATED: WebSocket connection to Python Bridge has been removed
+ * Now using scheduled polling instead - see RiskMonitoringService.performPeriodicBalancePoll()
+ *
+ * This class is kept for reference but is no longer active
  */
-@Component
+// @Component - DISABLED: No longer using WebSocket connection to Python
 public class PythonBridgeWebSocketHandler implements WebSocketHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(PythonBridgeWebSocketHandler.class);

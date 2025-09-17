@@ -65,11 +65,44 @@ public class UserService {
                 throw new IllegalArgumentException(UserConstants.MSG_USER_ALREADY_EXISTS + ": " + clientId);
             }
             
-            // Validate API credentials with Architect API
-            logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
-            ArchitectBalanceResponse balanceResponse = architectApiService.validateCredentialsAndGetBalance(
-                request.getApiKey(), request.getApiSecret());
-            BigDecimal initialBalance = balanceResponse.getBalance();
+            BigDecimal initialBalance;
+
+            // Check if initial balance was provided in the request
+            if (request.getInitialBalance() != null && request.getInitialBalance().compareTo(BigDecimal.ZERO) >= 0) {
+                // Use provided initial balance
+                logger.info("💵 Using provided initial balance for client {}: ${}",
+                    clientId, request.getInitialBalance());
+                initialBalance = request.getInitialBalance();
+
+                // Still validate credentials but don't use the balance
+                logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
+                try {
+                    architectApiService.validateCredentialsAndGetBalance(
+                        request.getApiKey(), request.getApiSecret());
+                    logger.info("✅ API credentials validated successfully for client: {}", clientId);
+                } catch (Exception e) {
+                    logger.warn("⚠️ Could not validate credentials with Architect: {}", e.getMessage());
+                    // Continue with registration even if validation fails
+                }
+            } else {
+                // Fetch balance from Architect API
+                logger.info("📊 Fetching balance from Architect API for client: {}", clientId);
+                logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
+
+                try {
+                    ArchitectBalanceResponse balanceResponse = architectApiService.validateCredentialsAndGetBalance(
+                        request.getApiKey(), request.getApiSecret());
+                    initialBalance = balanceResponse.getBalance();
+                    logger.info("💰 Balance fetched from Architect: ${} for client: {}",
+                        initialBalance, clientId);
+                } catch (Exception e) {
+                    logger.error("❌ Failed to fetch balance from Architect for client {}: {}",
+                        clientId, e.getMessage());
+                    // Use zero as fallback
+                    initialBalance = BigDecimal.ZERO;
+                    logger.warn("⚠️ Using default balance of 0 for client: {}", clientId);
+                }
+            }
             
             // Create user configuration
             ClientConfiguration user = createClientConfiguration(request, initialBalance);
