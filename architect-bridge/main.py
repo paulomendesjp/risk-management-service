@@ -407,7 +407,31 @@ async def get_balance(
             if history and len(history) > 0:
                 # Get the most recent snapshot
                 latest_summary = history[-1]
-                logger.info(f"✅ Got account summary with equity: ${latest_summary.equity if hasattr(latest_summary, 'equity') else 'N/A'}")
+
+                # LOG DETALHADO DO SUMMARY
+                logger.info("="*60)
+                logger.info(f"📊 COMPLETE ACCOUNT SUMMARY DETAILS:")
+                logger.info(f"  Equity (Balance): ${latest_summary.equity if hasattr(latest_summary, 'equity') else 'N/A'}")
+                logger.info(f"  Cash Excess: ${latest_summary.cash_excess if hasattr(latest_summary, 'cash_excess') else 'N/A'}")
+                logger.info(f"  Cash Available: ${latest_summary.cash_available if hasattr(latest_summary, 'cash_available') else 'N/A'}")
+                logger.info(f"  Unrealized PnL: ${latest_summary.unrealized_pnl if hasattr(latest_summary, 'unrealized_pnl') else 'N/A'}")
+                logger.info(f"  Realized PnL: ${latest_summary.realized_pnl if hasattr(latest_summary, 'realized_pnl') else 'N/A'}")
+                logger.info(f"  Total PnL: ${latest_summary.total_pnl if hasattr(latest_summary, 'total_pnl') else 'N/A'}")
+                logger.info(f"  Margin Used: ${latest_summary.margin_used if hasattr(latest_summary, 'margin_used') else 'N/A'}")
+                logger.info(f"  Margin Available: ${latest_summary.margin_available if hasattr(latest_summary, 'margin_available') else 'N/A'}")
+                logger.info(f"  Initial Margin: ${latest_summary.initial_margin if hasattr(latest_summary, 'initial_margin') else 'N/A'}")
+                logger.info(f"  Maintenance Margin: ${latest_summary.maintenance_margin if hasattr(latest_summary, 'maintenance_margin') else 'N/A'}")
+                logger.info(f"  Timestamp: {latest_summary.timestamp if hasattr(latest_summary, 'timestamp') else 'N/A'}")
+
+                # Log ALL available attributes
+                logger.info(f"\n📋 ALL AVAILABLE FIELDS:")
+                for attr in dir(latest_summary):
+                    if not attr.startswith('_'):
+                        value = getattr(latest_summary, attr, 'N/A')
+                        if not callable(value):
+                            logger.info(f"    {attr}: {value}")
+
+                logger.info("="*60)
 
                 balance_info = {
                     "accountId": account_id,
@@ -418,6 +442,13 @@ async def get_balance(
                     "realizedPnl": float(latest_summary.realized_pnl) if hasattr(latest_summary, 'realized_pnl') and latest_summary.realized_pnl is not None else 0,
                     "timestamp": str(latest_summary.timestamp) if hasattr(latest_summary, 'timestamp') and latest_summary.timestamp is not None else datetime.now().isoformat()
                 }
+
+                logger.info(f"📈 FINAL BALANCE RESPONSE: totalBalance=${balance_info['totalBalance']}, availableBalance=${balance_info['availableBalance']}")
+
+                # Log completo da resposta JSON
+                import json
+                logger.info(f"\n🔍 COMPLETE JSON RESPONSE:")
+                logger.info(json.dumps(balance_info, indent=2))
             else:
                 logger.warning("⚠️ No account history available")
                 balance_info = {
