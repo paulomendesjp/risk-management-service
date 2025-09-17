@@ -240,6 +240,9 @@ services:
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: 1
+      # MongoDB connection
+      MONGO_URI: mongodb://mongodb:27017/
+      MONGO_DB: architect_trading
       # Java Risk Service connection
       JAVA_WEBSOCKET_URL: ws://risk-monitoring-service:8083/python-bridge
       # Logging configuration
@@ -255,7 +258,42 @@ services:
       retries: 3
       start_period: 40s
 
+  # API Gateway Service
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 80
+      SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: mySecretKey123456789012345678901234567890
+      USER_SERVICE_URL: http://user-service:8081
+      POSITION_SERVICE_URL: http://position-service:8082
+      RISK_SERVICE_URL: http://risk-monitoring-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      ARCHITECT_BRIDGE_URL: http://architect-bridge:8090
+    ports:
+      - "80:80"
+      - "8080:80"
+    depends_on:
+      - redis
+      - user-service
+      - position-service
+      - risk-monitoring-service
+    networks:
+      - risk-management-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
+  # NGINX Reverse Proxy for port 80
   # ================== Monitoring (Optional) ==================
 
   # Prometheus for metrics collection (optional)

@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JwtAuthenticationManager implements ReactiveAuthenticationManager {
 
-    @Value("${jwt.secret}")
+    @Value("${security.jwt.secret}")
     private String jwtSecret;
 
     @Override

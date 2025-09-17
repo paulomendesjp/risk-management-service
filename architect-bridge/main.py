@@ -66,18 +66,30 @@ MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 MONGO_DB = os.getenv('MONGO_DB', 'architect_trading')
 
 try:
-    mongo_client = pymongo.MongoClient(MONGO_URI)
+    # Add timeout to prevent long waits
+    mongo_client = pymongo.MongoClient(
+        MONGO_URI,
+        serverSelectionTimeoutMS=2000,  # 2 seconds timeout
+        connectTimeoutMS=2000,
+        socketTimeoutMS=2000
+    )
+    # Test connection
+    mongo_client.server_info()
     db = mongo_client[MONGO_DB]
     positions_col = db["positions"]
     order_log_col = db["order_logs"]
     client_col = db["clients"]
     balance_history_col = db["balance_history"]
-    logger.info(f"✅ Connected to MongoDB: {MONGO_DB}")
+    logger.info(f"✅ Connected to MongoDB: {MONGO_DB} at {MONGO_URI}")
 except Exception as e:
-    logger.error(f"❌ Failed to connect to MongoDB: {e}")
+    logger.warning(f"⚠️ MongoDB not available ({e}), running without persistence")
     # Continue without MongoDB - will only use in-memory
     mongo_client = None
     db = None
+    positions_col = None
+    order_log_col = None
+    client_col = None
+    balance_history_col = None
 
 # Global state
 monitoring_tasks = {}

@@ -39,14 +39,6 @@ public class SecurityConfig {
     @Value("#{'${security.ignored-paths}'.split(',')}")
     private List<String> ignoredPaths;
 
-    @Value("#{'${security.cors.allowed-origins}'.split(',')}")
-    private List<String> allowedOrigins;
-
-    @Value("#{'${security.cors.allowed-methods}'.split(',')}")
-    private List<String> allowedMethods;
-
-    @Value("#{'${security.cors.allowed-headers}'.split(',')}")
-    private List<String> allowedHeaders;
 
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
@@ -63,6 +55,7 @@ public class SecurityConfig {
                         .pathMatchers("/api/users/register", "/api/users/login").permitAll()
                         .pathMatchers("/api/health", "/gateway/health").permitAll()
                         .pathMatchers("/fallback/**").permitAll()
+                        .pathMatchers("/webhook/**").permitAll()
                         .pathMatchers("/favicon.ico").permitAll()
                         .pathMatchers("/swagger-ui/**", "/v3/api-docs/**", "/webjars/**").permitAll()
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
@@ -127,11 +120,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(allowedOrigins);
-        configuration.setAllowedMethods(allowedMethods);
-        configuration.setAllowedHeaders(allowedHeaders);
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setExposedHeaders(Arrays.asList("Authorization", "X-Request-ID"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

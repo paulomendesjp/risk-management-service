@@ -62,6 +62,7 @@ public class RateLimitConfig {
     }
 
     @Bean
+    @Primary
     public RedisRateLimiter customRedisRateLimiter() {
         // Custom rate limiter with different limits for different client types
         return new RedisRateLimiter(100, 200, 1);

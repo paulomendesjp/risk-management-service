@@ -8,6 +8,20 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
+  # Feign Client Configuration - Reduce timeouts
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 5000   # 5 seconds
+            readTimeout: 10000     # 10 seconds
+            loggerLevel: basic
+          architect-bridge:
+            connectTimeout: 3000   # 3 seconds for architect bridge
+            readTimeout: 8000      # 8 seconds for architect bridge
+            loggerLevel: full
+
   # Security Configuration - Simple auth for testing
   security:
     user:

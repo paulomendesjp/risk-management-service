@@ -55,3 +55,27 @@
   "change" : -2.0,
   "severity" : "INFO"
 }
+Curl
+
+ curl -X POST 'http://205.172.56.220:8083/api/positions/orders' \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-KEY: Fn3HEQ6BwxAbYu8Wkpl4G62q' \
+  -H 'X-API-SECRET: 9VsKQri8mKqxKKWVvHoGAoUFh19j27iG1cktQ8oNpK2A' \
+  -d '{
+    "clientId": "test_client_007",
+    "symbol": "BTC 20250926 CME Future/USD",
+    "action": "BUY",
+    "orderQty": 0.001,
+    "orderType": "MARKET"
+  }'
+curl -X POST 'http://localhost:80/webhook/tradingview' \
+ -H 'Content-Type: application/json' \
+ -H 'X-API-KEY: Fn3HEQ6BwxAbYu8Wkpl4G62q' \
+ -H 'X-API-SECRET: 9VsKQri8mKqxKKWVvHoGAoUFh19j27iG1cktQ8oNpK2A' \
+ -d '{
+   "clientId": "test_client_007",
+   "symbol": "BTC 20250926 CME Future/USD",
+   "action": "BUY",
+   "orderQty": 0.001,
+   "orderType": "MARKET"
+ }'

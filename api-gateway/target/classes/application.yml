@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -134,6 +134,12 @@ spring:
           predicates:
             - Path=/ws/notifications/**
 
+# Security Configuration
+security:
+  ignored-paths: /actuator/health,/actuator/info,/swagger-ui/**,/v3/api-docs/**,/webjars/**,/webhook/**,/fallback/**
+  jwt:
+    secret: ${JWT_SECRET:mySecretKey123456789012345678901234567890}
+
 # Circuit Breaker Configuration
 resilience4j:
   circuitbreaker:
@@ -184,12 +190,6 @@ services:
     url: ${NOTIFICATION_SERVICE_URL:http://notification-service:8080}
     ws-url: ${NOTIFICATION_WS_URL:ws://notification-service:8080}
 
-# JWT Configuration
-jwt:
-  secret: ${JWT_SECRET:mySecretKey123456789012345678901234567890}
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
-  header: Authorization
-  prefix: "Bearer "
 
 # Rate Limiting Configuration
 rate-limit:
@@ -204,36 +204,6 @@ rate-limit:
       requests-per-minute: 500
       burst-capacity: 50
 
-# Security Configuration
-security:
-  ignored-paths:
-    - /actuator/**
-    - /api/users/register
-    - /api/users/login
-    - /api/health
-    - /gateway/health
-    - /favicon.ico
-    - /swagger-ui/**
-    - /v3/api-docs/**
-    - /fallback/**
-
-  cors:
-    allowed-origins:
-      - http://localhost:3000
-      - http://localhost:8080
-      - https://trading-dashboard.com
-    allowed-methods:
-      - GET
-      - POST
-      - PUT
-      - DELETE
-      - OPTIONS
-    allowed-headers:
-      - Authorization
-      - Content-Type
-      - X-Client-ID
-      - X-Request-ID
-    max-age: 3600
 
 # Actuator Configuration
 management:
@@ -304,6 +274,17 @@ services:
   notification-service:
     url: http://localhost:8084
     ws-url: ws://localhost:8084
+
+# URLs for WebhookService
+position:
+  service:
+    url: http://localhost:8083
+user:
+  service:
+    url: http://localhost:8081
+architect:
+  bridge:
+    url: http://localhost:8090
 
 ---
 # Docker Profile
