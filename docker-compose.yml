@@ -213,6 +213,8 @@ services:
       SLACK_WEBHOOK_URL: https://hooks.slack.com/services/YOUR/WEBHOOK/URL
     ports:
       - "8084:8084"
+    volumes:
+      - ./notification-service/logs:/app/logs
     depends_on:
       mongodb:
         condition: service_healthy
@@ -238,16 +240,14 @@ services:
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: 1
-      # Java Risk Service connection (update when running locally)
-      JAVA_WEBSOCKET_URL: ws://host.docker.internal:8083/python-bridge
+      # Java Risk Service connection
+      JAVA_WEBSOCKET_URL: ws://risk-monitoring-service:8083/python-bridge
       # Logging configuration
       LOG_LEVEL: INFO
     ports:
       - "8090:8090"
     networks:
       - risk-management-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Para conectar com serviços Java locais
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
       interval: 30s
