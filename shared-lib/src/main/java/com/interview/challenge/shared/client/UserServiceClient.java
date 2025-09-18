@@ -18,7 +18,7 @@ public interface UserServiceClient {
     /**
      * Get client configuration including API credentials and risk limits
      */
-    @GetMapping("/api/users/{clientId}/configuration")
+    @GetMapping("/api/users/{clientId}")
     ClientConfiguration getClientConfiguration(@PathVariable("clientId") String clientId);
     
     /**
