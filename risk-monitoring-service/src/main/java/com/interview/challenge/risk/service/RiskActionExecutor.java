@@ -7,7 +7,9 @@ import com.interview.challenge.risk.model.RiskStatus;
 import com.interview.challenge.risk.repository.AccountMonitoringRepository;
 import com.interview.challenge.risk.websocket.RiskWebSocketHandler;
 import com.interview.challenge.shared.audit.MandatoryAuditLogger;
+import com.interview.challenge.shared.client.ArchitectAuthInterceptor;
 import com.interview.challenge.shared.client.PositionServiceClient;
+import com.interview.challenge.shared.client.UserServiceClient;
 import com.interview.challenge.shared.dto.ClosePositionsResult;
 import com.interview.challenge.shared.event.NotificationEvent;
 import org.slf4j.Logger;
@@ -28,6 +30,9 @@ public class RiskActionExecutor {
 
     @Autowired
     private PositionServiceClient positionServiceClient;
+
+    @Autowired
+    private UserServiceClient userServiceClient;
 
     @Autowired
     private MandatoryAuditLogger mandatoryAuditLogger;
@@ -129,16 +134,37 @@ public class RiskActionExecutor {
     private ClosePositionsResult closeAllPositions(String clientId, String reason) {
         try {
             logger.info("📊 Closing all positions for client {} via Position Service. Reason: {}", clientId, reason);
-            ClosePositionsResult result = positionServiceClient.closeAllPositions(clientId, reason);
 
-            if (!result.isSuccess()) {
-                logger.warn("⚠️ Failed to close positions for client {}: {}", clientId, result.getMessage());
-            } else {
-                logger.info("✅ Position closure completed for client {}: {} positions closed",
-                    clientId, result.getPositionsClosed());
+            // Get client credentials from User Service
+            Map<String, String> credentials = userServiceClient.getDecryptedCredentials(clientId);
+            if (credentials == null || !credentials.containsKey("apiKey") || !credentials.containsKey("apiSecret")) {
+                logger.error("❌ Unable to get API credentials for client {}", clientId);
+                return createFailedCloseResult("Unable to retrieve API credentials");
             }
 
-            return result;
+            // Set credentials in ThreadLocal for the interceptor
+            ArchitectAuthInterceptor.CREDENTIALS.set(
+                new ArchitectAuthInterceptor.ApiCredentials(
+                    credentials.get("apiKey"),
+                    credentials.get("apiSecret")
+                )
+            );
+
+            try {
+                ClosePositionsResult result = positionServiceClient.closeAllPositions(clientId, reason);
+
+                if (!result.isSuccess()) {
+                    logger.warn("⚠️ Failed to close positions for client {}: {}", clientId, result.getMessage());
+                } else {
+                    logger.info("✅ Position closure completed for client {}: {} positions closed",
+                        clientId, result.getPositionsClosed());
+                }
+
+                return result;
+            } finally {
+                // Clean up ThreadLocal
+                ArchitectAuthInterceptor.CREDENTIALS.remove();
+            }
 
         } catch (Exception e) {
             logger.error("❌ Error closing positions for client {}: {}", clientId, e.getMessage());
