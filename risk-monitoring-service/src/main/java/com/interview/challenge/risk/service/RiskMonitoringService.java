@@ -409,15 +409,30 @@ public class RiskMonitoringService {
                         BigDecimal newBalance = balanceResponse.getTotalBalance();
                         BigDecimal previousBalance = monitoring.getCurrentBalance();
 
+                        // Check if monitoring needs initialization
+                        if (monitoring.getInitialBalance() == null) {
+                            logger.warn("⚠️ Initial balance not set for {}, fetching from User Service", clientId);
+                            ClientConfiguration userConfig = getUserConfiguration(clientId);
+                            if (userConfig != null && userConfig.getInitialBalance() != null) {
+                                monitoring.setInitialBalance(userConfig.getInitialBalance());
+                                monitoring.setDailyStartBalance(userConfig.getInitialBalance());
+                                logger.info("✅ Set initial balance from User Service: ${}", userConfig.getInitialBalance());
+                                accountMonitoringRepository.save(monitoring);
+                            }
+                        }
+
                         logger.info("📊 BALANCE COMPARISON for {}:", clientId);
+                        logger.info("  - Initial Balance: ${}", monitoring.getInitialBalance());
                         logger.info("  - Previous Balance: ${}", previousBalance);
                         logger.info("  - New Balance: ${}", newBalance);
                         logger.info("  - Are they equal? {}",
                             previousBalance != null ? previousBalance.compareTo(newBalance) == 0 : "previous is null");
 
-                        // Check if balance has changed
-                        if (previousBalance == null || newBalance.compareTo(previousBalance) != 0) {
-                            logger.info("💵 Balance change detected for client {}: {} -> {}",
+                        // Always process balance update to check risk even if balance hasn't changed
+                        // This ensures we catch cases where initial setup was wrong
+                        if (previousBalance == null || newBalance.compareTo(previousBalance) != 0 ||
+                            monitoring.getInitialBalance() == null || monitoring.getTotalPnl() == null) {
+                            logger.info("💵 Processing balance update for client {}: {} -> {}",
                                       clientId, previousBalance, newBalance);
 
                             // Create balance update event
@@ -431,7 +446,21 @@ public class RiskMonitoringService {
                             // Process the balance update
                             processBalanceUpdate(balanceUpdate);
                         } else {
-                            logger.info("📍 NO BALANCE CHANGE for client {}: still ${}", clientId, previousBalance);
+                            // Even if balance hasn't changed, check if we need to process risk
+                            BigDecimal totalPnl = newBalance.subtract(monitoring.getInitialBalance());
+                            if (totalPnl.compareTo(BigDecimal.ZERO) < 0) {
+                                logger.info("⚠️ Loss detected without balance change for {}: PnL=${}", clientId, totalPnl);
+                                // Force a balance update to trigger risk checks
+                                BalanceUpdateEvent balanceUpdate = new BalanceUpdateEvent();
+                                balanceUpdate.setClientId(clientId);
+                                balanceUpdate.setNewBalance(newBalance);
+                                balanceUpdate.setPreviousBalance(previousBalance);
+                                balanceUpdate.setSource("polling-risk-check");
+                                balanceUpdate.setTimestamp(LocalDateTime.now());
+                                processBalanceUpdate(balanceUpdate);
+                            } else {
+                                logger.info("📍 NO BALANCE CHANGE for client {}: still ${}", clientId, previousBalance);
+                            }
                         }
                     } else {
                         logger.warn("⚠️ NULL or INVALID balance response for client {}", clientId);
@@ -486,7 +515,14 @@ public class RiskMonitoringService {
     // ========== PRIVATE HELPER METHODS ==========
 
     private BigDecimal calculateRiskThreshold(RiskLimit riskLimit, BigDecimal baseAmount) {
-        return riskCalculator.calculateRiskThreshold(riskLimit, baseAmount);
+
+        BigDecimal threshold = riskCalculator.calculateRiskThreshold(riskLimit, baseAmount);
+        logger.debug("📐 Risk Threshold Calculation: type={}, value={}, baseAmount=${}, calculated threshold=${}",
+            riskLimit != null ? riskLimit.getType() : "null",
+            riskLimit != null ? riskLimit.getValue() : "null",
+            baseAmount,
+            threshold);
+        return threshold;
     }
     
     /**
@@ -734,32 +770,58 @@ public class RiskMonitoringService {
             String clientId = balanceUpdate.getClientId();
             BigDecimal newBalance = balanceUpdate.getNewBalance();
             String source = balanceUpdate.getSource();
-            
-            logger.info("📡 Processing real-time balance update for client {}: ${} from {}", 
+
+            logger.info("📡 Processing real-time balance update for client {}: ${} from {}",
                        clientId, newBalance, source);
-            
+
             // 1. Get or initialize monitoring data
             Optional<AccountMonitoring> optMonitoring = accountMonitoringRepository.findByClientId(clientId);
             if (!optMonitoring.isPresent()) {
                 logger.info("🆕 Initializing monitoring for new client: {}", clientId);
-                initializeMonitoring(clientId, newBalance);
-                return;
+                // Get initial balance from User Service instead of using current balance
+                ClientConfiguration userConfig = getUserConfiguration(clientId);
+                BigDecimal initialBalance = newBalance; // default to current if not found
+                if (userConfig != null && userConfig.getInitialBalance() != null) {
+                    initialBalance = userConfig.getInitialBalance();
+                    logger.info("📊 Using initial balance from User Service: ${}", initialBalance);
+                }
+                initializeMonitoring(clientId, initialBalance);
+                // Now process the current balance update
+                optMonitoring = accountMonitoringRepository.findByClientId(clientId);
+                if (!optMonitoring.isPresent()) {
+                    logger.error("Failed to initialize monitoring for client: {}", clientId);
+                    return;
+                }
             }
-            
+
             AccountMonitoring monitoring = optMonitoring.get();
             BigDecimal previousBalance = monitoring.getCurrentBalance();
-            
+
+            logger.info("📊 BALANCE UPDATE CALCULATION for {}:", clientId);
+            logger.info("  - Previous Balance: ${}", previousBalance);
+            logger.info("  - New Balance: ${}", newBalance);
+            logger.info("  - Change Amount: ${}", newBalance.subtract(previousBalance));
+            logger.info("  - Initial Balance: ${}", monitoring.getInitialBalance());
+            logger.info("  - Daily Start Balance: ${}", monitoring.getDailyStartBalance());
+            logger.info("  - Daily PnL BEFORE update: ${}", monitoring.getDailyPnl());
+            logger.info("  - Total PnL BEFORE update: ${}", monitoring.getTotalPnl());
+
             // 2. Update balance and calculate PnL (Requirement 2: Track daily/cumulative PnL)
             monitoring.updateBalance(newBalance, previousBalance);
 
-            logger.info("📝 BEFORE SAVE - client {}: currentBalance={}, currentLoss={}, dailyLoss={}",
-                clientId, monitoring.getCurrentBalance(), monitoring.getCurrentLoss(), monitoring.getDailyLoss());
+            logger.info("📈 AFTER updateBalance() calculation:");
+            logger.info("  - Daily PnL AFTER update: ${}", monitoring.getDailyPnl());
+            logger.info("  - Total PnL AFTER update: ${}", monitoring.getTotalPnl());
+            logger.info("  - Current Loss (abs of negative totalPnL): ${}", monitoring.getCurrentLoss());
+            logger.info("  - Daily Loss (abs of negative dailyPnL): ${}", monitoring.getDailyLoss());
 
             // 3. Store in MongoDB for persistence and auditing (Requirement 2)
             AccountMonitoring savedMonitoring = accountMonitoringRepository.save(monitoring);
 
-            logger.info("💾 AFTER SAVE - client {}: currentBalance={}, currentLoss={}, dailyLoss={}",
-                clientId, savedMonitoring.getCurrentBalance(), savedMonitoring.getCurrentLoss(), savedMonitoring.getDailyLoss());
+            logger.info("💾 AFTER SAVE verification:");
+            logger.info("  - Saved Current Balance: ${}", savedMonitoring.getCurrentBalance());
+            logger.info("  - Saved Current Loss: ${}", savedMonitoring.getCurrentLoss());
+            logger.info("  - Saved Daily Loss: ${}", savedMonitoring.getDailyLoss());
 
             // 4. Check risk limits and take actions if needed (Requirement 3)
             checkRiskLimitsAndTakeActions(savedMonitoring);
@@ -829,11 +891,25 @@ public class RiskMonitoringService {
             logger.info("  - Initial Balance: ${}", monitoring.getInitialBalance());
             logger.info("  - Daily Start Balance: ${}", monitoring.getDailyStartBalance());
             logger.info("  - Current Balance: ${}", monitoring.getCurrentBalance());
-            logger.info("  - Current Loss: ${}", currentLoss);
-            logger.info("  - Daily Loss: ${}", dailyLoss);
-            logger.info("  - Max Risk Limit: ${} ({})", maxRiskLimit, clientConfig.getMaxRisk().getType());
-            logger.info("  - Daily Risk Limit: ${} ({})", dailyRiskLimit, clientConfig.getDailyRisk().getType());
-            
+            logger.info("  - Total PnL: ${}", monitoring.getTotalPnl());
+            logger.info("  - Daily PnL: ${}", monitoring.getDailyPnl());
+            logger.info("  - Current Loss: ${} (from totalPnL: {})", currentLoss, monitoring.getTotalPnl());
+            logger.info("  - Daily Loss: ${} (from dailyPnL: {})", dailyLoss, monitoring.getDailyPnl());
+            logger.info("  - Max Risk Config: type={}, value={}",
+                clientConfig.getMaxRisk() != null ? clientConfig.getMaxRisk().getType() : "null",
+                clientConfig.getMaxRisk() != null ? clientConfig.getMaxRisk().getValue() : "null");
+            logger.info("  - Daily Risk Config: type={}, value={}",
+                clientConfig.getDailyRisk() != null ? clientConfig.getDailyRisk().getType() : "null",
+                clientConfig.getDailyRisk() != null ? clientConfig.getDailyRisk().getValue() : "null");
+            logger.info("  - Max Risk Limit Calculated: ${}", maxRiskLimit);
+            logger.info("  - Daily Risk Limit Calculated: ${}", dailyRiskLimit);
+
+            logger.info("🎯 RISK COMPARISON CHECKS:");
+            logger.info("  - Is currentLoss ({}) >= maxRiskLimit ({})? {}",
+                currentLoss, maxRiskLimit, currentLoss.compareTo(maxRiskLimit) >= 0);
+            logger.info("  - Is dailyLoss ({}) >= dailyRiskLimit ({})? {}",
+                dailyLoss, dailyRiskLimit, dailyLoss.compareTo(dailyRiskLimit) >= 0);
+
             // REQUIREMENT 3: Max Risk Trigger
             if (currentLoss.compareTo(maxRiskLimit) >= 0) {
                 logger.error("🚨 MAX RISK TRIGGERED for client {}: loss=${}, limit=${}", 

@@ -116,11 +116,21 @@ public class AccountMonitoring {
     public void updateBalance(BigDecimal newBalance, BigDecimal previousBalance) {
         this.currentBalance = newBalance;
         this.updatedAt = LocalDateTime.now();
-        
+
+        // Always calculate totalPnl from initialBalance
+        if (this.initialBalance != null) {
+            this.totalPnl = newBalance.subtract(this.initialBalance);
+        }
+
+        // Update daily PnL based on changes
         if (previousBalance != null) {
             BigDecimal change = newBalance.subtract(previousBalance);
             this.dailyPnl = this.dailyPnl.add(change);
-            this.totalPnl = newBalance.subtract(this.initialBalance);
+        } else {
+            // First update of the day - calculate from daily start
+            if (this.dailyStartBalance != null) {
+                this.dailyPnl = newBalance.subtract(this.dailyStartBalance);
+            }
         }
     }
     
