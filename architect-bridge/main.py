@@ -21,7 +21,7 @@ from typing import Optional
 import asyncio
 import uvicorn
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import os
 from decimal import Decimal
 import time
@@ -388,25 +388,53 @@ async def get_balance(
 
         account_id = str(account.account.id) if hasattr(account.account, 'id') else "unknown"
 
-        # Try to get account history for balance
+        # Try to get current account balance first
+        try:
+            # Get current account info
+            account_info = await client.list_accounts()
+            if account_info and len(account_info) > 0:
+                current_account = account_info[0]
+                if hasattr(current_account, 'balance'):
+                    logger.info(f"💰 Current account balance from list_accounts: ${current_account.balance}")
+                    # If we have direct balance, use it
+                    if hasattr(current_account, 'balance') and current_account.balance is not None:
+                        balance_info = {
+                            "accountId": account_id,
+                            "totalBalance": float(current_account.balance),
+                            "availableBalance": float(current_account.balance),
+                            "balance": float(current_account.balance),
+                            "unrealizedPnl": 0,
+                            "realizedPnl": 0,
+                            "timestamp": datetime.now(timezone.utc).isoformat()
+                        }
+                        logger.info(f"✅ Using direct balance: ${current_account.balance}")
+                        return balance_info
+        except Exception as e:
+            logger.warning(f"⚠️ Could not get direct balance: {e}")
+
+        # Fallback to account history for detailed info
 
         try:
             from datetime import timedelta, timezone
             # MUST use UTC timezone for architect API
             now = datetime.now(timezone.utc)
-            yesterday = now - timedelta(days=1)
+            # Get history from last 2 hours to ensure we get the latest data
+            start_time = now - timedelta(hours=2)
 
             # Get account history with summary
-            logger.info(f"📊 Getting account history for balance...")
+            logger.info(f"📊 Getting account history from {start_time} to {now}")
             history = await client.get_account_history(
                 account=account_id,
-                from_inclusive=yesterday,
-                to_exclusive=now + timedelta(days=1)
+                from_inclusive=start_time,
+                to_exclusive=now + timedelta(minutes=1)  # Add 1 minute to ensure we get current data
             )
 
             if history and len(history) > 0:
-                # Get the most recent snapshot
-                latest_summary = history[-1]
+                # Sort by timestamp to ensure we get the most recent
+                sorted_history = sorted(history, key=lambda x: x.timestamp if hasattr(x, 'timestamp') else datetime.min)
+                latest_summary = sorted_history[-1]  # Get the most recent after sorting
+
+                logger.info(f"📅 Found {len(history)} snapshots, using most recent from {latest_summary.timestamp if hasattr(latest_summary, 'timestamp') else 'unknown'}")
 
                 # LOG DETALHADO DO SUMMARY
                 logger.info("="*60)
