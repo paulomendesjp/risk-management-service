@@ -50,6 +50,16 @@ kraken:
     max-daily-loss-percent: ${KRAKEN_MAX_DAILY_LOSS:5.0}
     max-total-loss-percent: ${KRAKEN_MAX_TOTAL_LOSS:20.0}
 
+  monitoring:
+    mode: ${KRAKEN_MONITORING_MODE:websocket}  # websocket or polling
+    interval: ${KRAKEN_MONITORING_INTERVAL:10000}  # 10 seconds (for polling mode)
+
+  websocket:
+    url: wss://ws-auth.kraken.com/v2
+    reconnect:
+      enabled: true
+      interval: 5000  # 5 seconds
+
 # Service URLs
 service:
   urls:
@@ -57,17 +67,6 @@ service:
     risk-monitoring: ${RISK_SERVICE_URL:http://localhost:8085}
     notification: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
     api-gateway: ${API_GATEWAY_URL:http://localhost:8080}
-
-# Kraken Specific Configuration
-kraken:
-  monitoring:
-    mode: ${KRAKEN_MONITORING_MODE:websocket}  # websocket or polling
-    interval: ${KRAKEN_MONITORING_INTERVAL:10000}  # 10 seconds (for polling mode)
-  websocket:
-    url: wss://ws-auth.kraken.com/v2
-    reconnect:
-      enabled: true
-      interval: 5000  # 5 seconds
 
 # Logging Configuration
 logging:

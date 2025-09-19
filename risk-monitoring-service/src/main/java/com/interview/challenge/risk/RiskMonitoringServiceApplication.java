@@ -14,7 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication(scanBasePackages = {"com.interview.challenge.risk", "com.interview.challenge.shared"})
 @EnableFeignClients(basePackages = {"com.interview.challenge.shared"})
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 @EnableScheduling
 public class RiskMonitoringServiceApplication {
 

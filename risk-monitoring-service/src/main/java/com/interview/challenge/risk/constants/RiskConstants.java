@@ -19,8 +19,7 @@ public final class RiskConstants {
 
     // URLs
     public static final String PYTHON_BRIDGE_BASE_URL = "http://localhost:8090";
-    public static final String START_MONITORING_ENDPOINT = "/start-monitoring/";
-    public static final String STOP_MONITORING_ENDPOINT = "/stop-monitoring/";
+    // WebSocket monitoring endpoints removed - monitoring is now automatic via BalanceWebSocketClient
 
     // WebSocket Message Types
     public static final String MSG_TYPE_BALANCE_UPDATE = "balance_update";

@@ -27,40 +27,29 @@ public class MonitoringIntegrationService {
     private UserService userService;
     
     /**
-     * Start monitoring for a client in Python Bridge
+     * Start monitoring for a client
+     * Note: Monitoring is now automatically handled by risk-monitoring-service via WebSocket
+     * This method is kept for compatibility but doesn't need to call architect-bridge anymore
      */
     public void startMonitoringForClient(String clientId) {
         try {
-            logger.info("🚀 Starting automatic monitoring for client: {}", clientId);
-            
-            // Get decrypted credentials
+            logger.info("🚀 Monitoring will be automatically started by risk-monitoring-service for client: {}", clientId);
+
+            // The risk-monitoring-service will automatically detect new clients
+            // and start WebSocket connections for balance and position monitoring
+            // No need to call architect-bridge /start-monitoring endpoint anymore
+
+            // Just verify that credentials exist
             Map<String, String> credentials = userService.getDecryptedCredentials(clientId);
-            
-            // Call Python Bridge to start monitoring
-            String pythonBridgeUrl = architectBridgeEndpoint + "/start-monitoring/" + clientId;
-            
-            // Use RestTemplate to call Python Bridge
-            RestTemplate restTemplate = new RestTemplate();
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("api-key", credentials.get("apiKey"));
-            headers.set("api-secret", credentials.get("apiSecret"));
-            headers.set("Content-Type", "application/json");
-            
-            HttpEntity<String> entity = new HttpEntity<>("{}", headers);
-            
-            ResponseEntity<String> response = restTemplate.postForEntity(
-                pythonBridgeUrl, entity, String.class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                logger.info("✅ Successfully started monitoring for client: {}", clientId);
+            if (credentials != null && credentials.get("apiKey") != null) {
+                logger.info("✅ Client {} has valid credentials for monitoring", clientId);
             } else {
-                logger.error("❌ Failed to start monitoring for client {}: {}", clientId, response.getBody());
+                logger.warn("⚠️ Client {} missing API credentials for monitoring", clientId);
             }
-            
+
         } catch (Exception e) {
-            logger.error("❌ Error starting monitoring for client {}: {}", clientId, e.getMessage());
-            // Don't throw exception - registration should still succeed even if monitoring fails
+            logger.error("❌ Error verifying monitoring setup for client {}: {}", clientId, e.getMessage());
+            // Don't throw exception - registration should still succeed even if monitoring check fails
         }
     }
     
@@ -95,5 +84,6 @@ public class MonitoringIntegrationService {
         }
     }
 }
+
 
 

@@ -7,6 +7,7 @@ import com.interview.challenge.risk.model.AccountMonitoring;
 import com.interview.challenge.risk.model.RiskStatus;
 import com.interview.challenge.risk.repository.AccountMonitoringRepository;
 import com.interview.challenge.risk.websocket.RiskWebSocketHandler;
+import com.interview.challenge.risk.websocket.BalanceWebSocketClient;
 import com.interview.challenge.shared.dto.ArchitectBalanceResponse;
 import com.interview.challenge.shared.model.ClientConfiguration;
 import com.interview.challenge.shared.model.RiskLimit;
@@ -32,6 +33,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.context.event.EventListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -97,6 +99,9 @@ public class RiskMonitoringService {
 
     @Autowired
     private NotificationPublisher notificationPublisher;
+
+    @Autowired
+    private BalanceWebSocketClient balanceWebSocketClient;
     
     @Value("${risk.monitoring.balance-check-interval:30000}")
     private long balanceCheckInterval;
@@ -128,10 +133,18 @@ public class RiskMonitoringService {
         
         AccountMonitoring monitoring = new AccountMonitoring(clientId, initialBalance);
         AccountMonitoring saved = accountMonitoringRepository.save(monitoring);
-        
+
         // Broadcast initialization
         broadcastAccountStatus(saved);
-        
+
+        // Start WebSocket monitoring for this client
+        try {
+            balanceWebSocketClient.addClientMonitoring(clientId);
+            logger.info("✅ WebSocket balance monitoring started for client: {}", clientId);
+        } catch (Exception e) {
+            logger.error("❌ Failed to start WebSocket monitoring for client {}: {}", clientId, e.getMessage());
+        }
+
         logger.info("Risk monitoring initialized for client: {}", clientId);
         return saved;
     }
@@ -368,16 +381,16 @@ public class RiskMonitoringService {
     /**
      * 💰 PERIODIC BALANCE POLLING FROM ARCHITECT-BRIDGE
      * Polls architect-bridge API to get real-time balance updates
-     * Replaces WebSocket streaming with scheduled polling
+     * DISABLED - Now using WebSocket streaming via BalanceWebSocketClient
      */
-    @Scheduled(fixedDelayString = "${risk.monitoring.balance-poll-interval:30000}")
-    public void performPeriodicBalancePoll() {
+    //@Scheduled(fixedDelayString = "${risk.monitoring.balance-poll-interval:30000}")
+    public void performPeriodicBalancePoll_DISABLED() {
         logger.info("💰 Starting periodic balance polling from architect-bridge");
 
         try {
-            // Get all active monitoring accounts
+            // Get ALL monitoring accounts (including blocked ones to track recovery)
+            // CHANGED: Removed canTrade() filter to continue monitoring blocked accounts
             List<AccountMonitoring> activeAccounts = accountMonitoringRepository.findAll().stream()
-                .filter(AccountMonitoring::canTrade)
                 .limit(maxConcurrentChecks)
                 .toList();
 
@@ -669,92 +682,8 @@ public class RiskMonitoringService {
     }
 
     // 🌐 WEBSOCKET REAL-TIME MONITORING METHODS
-
-    /**
-     * 🚀 START REAL-TIME WEBSOCKET MONITORING
-     */
-    public boolean startRealTimeMonitoring(String clientId) {
-        try {
-            logger.info("🚀 Starting real-time WebSocket monitoring for client: {}", clientId);
-
-            ClientConfiguration clientConfig = getClientConfiguration(clientId);
-            if (clientConfig == null) {
-                logger.error("❌ No client configuration found for: {}", clientId);
-                return false;
-            }
-
-            String bridgeUrl = architectBridgeEndpoint + RiskConstants.START_MONITORING_ENDPOINT + clientId;
-
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.set("X-API-Key", clientConfig.getApiKey());
-            headers.set("X-API-Secret", clientConfig.getApiSecret());
-
-            org.springframework.http.HttpEntity<String> request = new org.springframework.http.HttpEntity<>("", headers);
-
-            org.springframework.http.ResponseEntity<Map> response = restTemplate.postForEntity(
-                bridgeUrl, request, Map.class
-            );
-
-            return response.getStatusCode().is2xxSuccessful();
-
-        } catch (Exception e) {
-            logger.error("❌ Error starting real-time monitoring for client {}: {}", clientId, e.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * 🚀 START REAL-TIME WEBSOCKET MONITORING WITH CREDENTIALS
-     * Overloaded method that accepts decrypted API credentials directly
-     */
-    public boolean startRealTimeMonitoring(String clientId, String apiKey, String apiSecret) {
-        try {
-            logger.info("🚀 Starting real-time WebSocket monitoring for client: {} with provided credentials", clientId);
-
-            String bridgeUrl = architectBridgeEndpoint + RiskConstants.START_MONITORING_ENDPOINT + clientId;
-
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            // Python Bridge expects lowercase headers with hyphens
-            headers.set(RiskConstants.HEADER_API_KEY, apiKey);
-            headers.set(RiskConstants.HEADER_API_SECRET, apiSecret);
-            headers.set(RiskConstants.HEADER_CONTENT_TYPE, RiskConstants.CONTENT_TYPE_JSON);
-
-            org.springframework.http.HttpEntity<String> request = new org.springframework.http.HttpEntity<>("", headers);
-
-            org.springframework.http.ResponseEntity<Map> response = restTemplate.postForEntity(
-                bridgeUrl, request, Map.class
-            );
-
-            if (response.getStatusCode().is2xxSuccessful()) {
-                logger.info("✅ WebSocket monitoring started successfully for client: {}", clientId);
-                return true;
-            } else {
-                logger.error("❌ Failed to start WebSocket monitoring for client: {} - Status: {}",
-                           clientId, response.getStatusCode());
-                return false;
-            }
-
-        } catch (Exception e) {
-            logger.error("❌ Error starting real-time monitoring for client {}: {}", clientId, e.getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * ⏹️ STOP REAL-TIME WEBSOCKET MONITORING
-     */
-    public boolean stopRealTimeMonitoring(String clientId) {
-        try {
-            String bridgeUrl = architectBridgeEndpoint + RiskConstants.STOP_MONITORING_ENDPOINT + clientId;
-            org.springframework.http.ResponseEntity<Map> response = restTemplate.postForEntity(
-                bridgeUrl, null, Map.class
-            );
-            return response.getStatusCode().is2xxSuccessful();
-        } catch (Exception e) {
-            logger.error("❌ Error stopping real-time monitoring: {}", e.getMessage());
-            return false;
-        }
-    }
+    // Note: WebSocket monitoring is now handled automatically by BalanceWebSocketClient
+    // These methods have been removed as they are no longer needed
 
     /**
      * 📡 PROCESS REAL-TIME BALANCE UPDATE FROM WEBSOCKET
@@ -765,6 +694,7 @@ public class RiskMonitoringService {
      * 2. Monitoring - "Store daily monitoring data in MongoDB for persistence and auditing"
      * 3. Risk Checks - Check daily and max risk limits and trigger actions
      */
+    @EventListener
     public void processBalanceUpdate(BalanceUpdateEvent balanceUpdate) {
         try {
             String clientId = balanceUpdate.getClientId();

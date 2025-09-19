@@ -13,6 +13,8 @@ public class ArchitectBalanceResponse {
     private BigDecimal unrealizedPnl;
     private BigDecimal totalPnl;
     private BigDecimal dailyPnl; // Daily P&L
+    private BigDecimal positionMargin; // Margin for open positions
+    private BigDecimal totalMargin; // Total margin used
 
     // Constructors
     public ArchitectBalanceResponse() {}
@@ -73,5 +75,21 @@ public class ArchitectBalanceResponse {
 
     public void setDailyPnl(BigDecimal dailyPnl) {
         this.dailyPnl = dailyPnl;
+    }
+
+    public BigDecimal getPositionMargin() {
+        return positionMargin;
+    }
+
+    public void setPositionMargin(BigDecimal positionMargin) {
+        this.positionMargin = positionMargin;
+    }
+
+    public BigDecimal getTotalMargin() {
+        return totalMargin;
+    }
+
+    public void setTotalMargin(BigDecimal totalMargin) {
+        this.totalMargin = totalMargin;
     }
 }

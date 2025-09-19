@@ -320,3 +320,4 @@ public class NotificationEvent {
                            eventType, clientId, priority, message, timestamp);
     }
 }
+

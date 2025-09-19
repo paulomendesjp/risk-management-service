@@ -109,7 +109,7 @@ public class RabbitConfig {
      * General notification queue for Kraken events
      */
     @Bean
-    public Queue notificationQueue() {
+    public Queue krakenNotificationQueue() {
         return QueueBuilder
                 .durable(NOTIFICATION_QUEUE)
                 .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
@@ -117,4 +117,5 @@ public class RabbitConfig {
                 .build();
     }
 }
+
 

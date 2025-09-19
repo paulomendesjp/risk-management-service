@@ -75,23 +75,9 @@ public class MonitoringInitializer implements ApplicationRunner {
                             // Initialize monitoring in database
                             riskMonitoringService.initializeMonitoring(clientId, client.getInitialBalance());
 
-                            // Get decrypted credentials from user service
-                            try {
-                                var credentials = userServiceClient.getDecryptedCredentials(clientId);
-                                String apiKey = credentials.get("apiKey");
-                                String apiSecret = credentials.get("apiSecret");
-
-                                // Start real-time WebSocket monitoring via Python bridge with credentials
-                                boolean started = riskMonitoringService.startRealTimeMonitoring(clientId, apiKey, apiSecret);
-
-                                if (started) {
-                                    logger.info("✅ WebSocket monitoring started successfully for client: {}", clientId);
-                                } else {
-                                    logger.warn("⚠️ Failed to start WebSocket monitoring for client: {}", clientId);
-                                }
-                            } catch (Exception e) {
-                                logger.warn("⚠️ Could not get credentials for client {}, skipping WebSocket: {}", clientId, e.getMessage());
-                            }
+                            // WebSocket monitoring is now handled automatically by BalanceWebSocketClient
+                            // It will connect when it detects monitored accounts in the database
+                            logger.info("✅ Monitoring initialized for client: {} - WebSocket will connect automatically", clientId);
                         } catch (Exception e) {
                             logger.error("❌ Error starting monitoring for client {}: {}", clientId, e.getMessage());
                         }

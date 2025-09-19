@@ -208,3 +208,4 @@ public class WebSocketNotificationService {
                eventType == NotificationType.MONITORING_ERROR;
     }
 }
+

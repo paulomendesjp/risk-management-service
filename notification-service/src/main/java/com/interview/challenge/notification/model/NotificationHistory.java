@@ -194,3 +194,4 @@ public class NotificationHistory {
                            id, eventType, clientId, priority, timestamp);
     }
 }
+

@@ -1,6 +1,8 @@
 package com.interview.challenge.risk.listener;
 
 import com.interview.challenge.risk.service.RiskMonitoringService;
+import com.interview.challenge.risk.websocket.OrderFlowWebSocketClient;
+import com.interview.challenge.risk.websocket.PositionWebSocketClient;
 import com.interview.challenge.shared.client.UserServiceClient;
 import com.interview.challenge.shared.event.UserRegistrationEvent;
 import org.slf4j.Logger;
@@ -29,6 +31,12 @@ public class UserRegistrationListener {
     @Autowired
     private UserServiceClient userServiceClient;
 
+    @Autowired
+    private OrderFlowWebSocketClient orderFlowWebSocketClient;
+
+    @Autowired
+    private PositionWebSocketClient positionWebSocketClient;
+
     public UserRegistrationListener() {
         logger.info("🎧 UserRegistrationListener initialized - Ready to receive user registration events");
     }
@@ -52,21 +60,16 @@ public class UserRegistrationListener {
                 // Small delay to ensure user data is fully persisted
                 Thread.sleep(2000);
 
-                // Fetch decrypted credentials from user service
-                logger.info("🔑 Fetching credentials for new client: {}", clientId);
-                Map<String, String> credentials = userServiceClient.getDecryptedCredentials(clientId);
-                String apiKey = credentials.get("apiKey");
-                String apiSecret = credentials.get("apiSecret");
+                // Add WebSocket monitoring for new client
+                logger.info("🚀 Starting WebSocket monitoring for new client: {}", clientId);
 
-                // Start real-time WebSocket monitoring with credentials
-                logger.info("🚀 Starting WebSocket monitoring for new client: {} with credentials", clientId);
-                boolean started = riskMonitoringService.startRealTimeMonitoring(clientId, apiKey, apiSecret);
+                // Start orderflow monitoring for real-time fills
+                orderFlowWebSocketClient.addClientMonitoring(clientId);
+                logger.info("✅ OrderFlow WebSocket activated for new client: {}", clientId);
 
-                if (started) {
-                    logger.info("✅ WebSocket monitoring activated for new client: {}", clientId);
-                } else {
-                    logger.error("❌ Failed to start WebSocket monitoring for new client: {}", clientId);
-                }
+                // Start position monitoring for real-time P&L
+                positionWebSocketClient.addPositionMonitoring(clientId);
+                logger.info("✅ Position P&L WebSocket activated for new client: {}", clientId);
 
             } catch (Exception e) {
                 logger.error("❌ Error handling registration for client {}: {}", clientId, e.getMessage(), e);
@@ -103,12 +106,10 @@ public class UserRegistrationListener {
         logger.info("🗑️ Received user deletion event for client: {}", clientId);
 
         try {
-            // Stop WebSocket monitoring
-            boolean stopped = riskMonitoringService.stopRealTimeMonitoring(clientId);
-
-            if (stopped) {
-                logger.info("✅ WebSocket monitoring stopped for deleted client: {}", clientId);
-            }
+            // Stop all WebSocket monitoring
+            orderFlowWebSocketClient.removeClientMonitoring(clientId);
+            positionWebSocketClient.removePositionMonitoring(clientId);
+            logger.info("✅ All WebSocket monitoring stopped for deleted client: {}", clientId);
 
         } catch (Exception e) {
             logger.error("❌ Error handling deletion for client {}: {}", clientId, e.getMessage());

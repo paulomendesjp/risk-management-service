@@ -22,3 +22,11 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+/risk-monitoring-service/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
+/risk-monitoring-service/target
+/shared-lib/target
+/position-service/target
+/user-service/target
+/kraken-service/target
+/notification-service/target
+/api-gateway/target

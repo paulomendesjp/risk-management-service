@@ -84,7 +84,7 @@ public class RiskActionExecutor {
     /**
      * Execute max risk violation actions
      */
-    private void executeMaxRiskActions(AccountMonitoring monitoring, BigDecimal loss, BigDecimal limit) {
+    public void executeMaxRiskActions(AccountMonitoring monitoring, BigDecimal loss, BigDecimal limit) {
         String clientId = monitoring.getClientId();
         logger.error("🚨 EXECUTING MAX RISK ACTIONS for client {}", clientId);
 
@@ -115,7 +115,7 @@ public class RiskActionExecutor {
     /**
      * Execute daily risk violation actions
      */
-    private void executeDailyRiskActions(AccountMonitoring monitoring, BigDecimal loss, BigDecimal limit) {
+    public void executeDailyRiskActions(AccountMonitoring monitoring, BigDecimal loss, BigDecimal limit) {
         String clientId = monitoring.getClientId();
         logger.warn("⚠️ EXECUTING DAILY RISK ACTIONS for client {}", clientId);
 

@@ -140,65 +140,10 @@ public class RiskController {
     /**
      * 🚀 START REAL-TIME MONITORING - Triggers Python Bridge to start WebSocket monitoring
      */
-    @PostMapping("/start-monitoring/{clientId}")
-    public ResponseEntity<?> startRealTimeMonitoring(@PathVariable String clientId) {
-        try {
-            logger.info("🚀 Starting real-time monitoring for client {}", clientId);
-            
-            boolean started = riskMonitoringService.startRealTimeMonitoring(clientId);
-            
-            if (started) {
-                return ResponseEntity.ok(
-                    ApiResponse.success()
-                        .data("status", RiskConstants.STATUS_STARTED)
-                        .data("clientId", clientId)
-                        .data("monitoring", "websocket_realtime")
-                        .build()
-                );
-            } else {
-                return ResponseEntity.badRequest().body(
-                    ApiResponse.error()
-                        .message("Failed to start monitoring for client: " + clientId)
-                        .build()
-                );
-            }
-            
-        } catch (Exception e) {
-            logger.error("❌ Error starting real-time monitoring for {}: {}", clientId, e.getMessage());
-            return ResponseEntity.internalServerError().body(
-                ApiResponse.error()
-                    .message("Error starting monitoring: " + e.getMessage())
-                    .build()
-            );
-        }
-    }
+    // WebSocket monitoring endpoint removed - monitoring is now handled automatically by BalanceWebSocketClient
+    // The BalanceWebSocketClient connects to all monitored clients on startup
 
-    /**
-     * ⏹️ STOP REAL-TIME MONITORING
-     */
-    @PostMapping("/stop-monitoring/{clientId}")
-    public ResponseEntity<?> stopRealTimeMonitoring(@PathVariable String clientId) {
-        try {
-            logger.info("⏹️ Stopping real-time monitoring for client {}", clientId);
-            
-            boolean stopped = riskMonitoringService.stopRealTimeMonitoring(clientId);
-            
-            return ResponseEntity.ok(
-                ApiResponse.success()
-                    .data("status", stopped ? RiskConstants.STATUS_STOPPED : RiskConstants.STATUS_NOT_RUNNING)
-                    .data("clientId", clientId)
-                    .build()
-            );
-            
-        } catch (Exception e) {
-            logger.error("❌ Error stopping monitoring for {}: {}", clientId, e.getMessage());
-            return ResponseEntity.internalServerError().body(
-                ApiResponse.error()
-                    .message("Error stopping monitoring: " + e.getMessage())
-                    .build()
-            );
-        }
-    }
+    // Stop monitoring endpoint also removed - WebSocket connections are managed automatically
 
     // Helper methods
 
