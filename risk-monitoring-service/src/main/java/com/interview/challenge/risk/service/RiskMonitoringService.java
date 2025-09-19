@@ -727,6 +727,13 @@ public class RiskMonitoringService {
             AccountMonitoring monitoring = optMonitoring.get();
             BigDecimal previousBalance = monitoring.getCurrentBalance();
 
+            // Check if balance actually changed
+            if (previousBalance != null && newBalance.compareTo(previousBalance) == 0) {
+                logger.debug("📍 Balance unchanged for client {}: ${} (source: {})",
+                            clientId, newBalance, source);
+                return; // Skip processing if balance hasn't changed
+            }
+
             logger.info("📊 BALANCE UPDATE CALCULATION for {}:", clientId);
             logger.info("  - Previous Balance: ${}", previousBalance);
             logger.info("  - New Balance: ${}", newBalance);
