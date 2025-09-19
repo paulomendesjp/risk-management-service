@@ -123,10 +123,11 @@ public class OrderFlowWebSocketClient extends TextWebSocketHandler {
             // Build WebSocket URL
             String wsUrl = architectBridgeEndpoint.replace("http://", "ws://")
                                                  .replace("https://", "wss://");
-            wsUrl = wsUrl + "/ws/orderflow?api_key=" + credentials.get("apiKey")
+            // Use realtime endpoint (orderflow endpoint doesn't exist)
+            wsUrl = wsUrl + "/ws/realtime?api_key=" + credentials.get("apiKey")
                          + "&api_secret=" + credentials.get("apiSecret");
 
-            logger.info("📡 Connecting WebSocket for client {} to {}", clientId, wsUrl.split("\\?")[0]);
+            logger.info("📡 Connecting OrderFlow monitoring via realtime WebSocket for client {}", clientId);
 
             StandardWebSocketClient client = new StandardWebSocketClient();
             WebSocketSession session = client.doHandshake(this, wsUrl).get(5, TimeUnit.SECONDS);

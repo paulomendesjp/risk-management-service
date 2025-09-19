@@ -128,13 +128,13 @@ public class PositionWebSocketClient extends TextWebSocketHandler {
                 return;
             }
 
-            // Build WebSocket URL for positions endpoint
+            // Build WebSocket URL for realtime endpoint (positions endpoint doesn't exist)
             String wsUrl = architectBridgeEndpoint.replace("http://", "ws://")
                                                  .replace("https://", "wss://");
-            wsUrl = wsUrl + "/ws/positions?api_key=" + credentials.get("apiKey")
+            wsUrl = wsUrl + "/ws/realtime?api_key=" + credentials.get("apiKey")
                          + "&api_secret=" + credentials.get("apiSecret");
 
-            logger.info("💹 Connecting Position WebSocket for {} to monitor P&L", clientId);
+            logger.info("💹 Connecting Position monitoring via realtime WebSocket for {}", clientId);
 
             StandardWebSocketClient client = new StandardWebSocketClient();
             WebSocketSession session = client.doHandshake(this, wsUrl).get(5, TimeUnit.SECONDS);
