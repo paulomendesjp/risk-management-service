@@ -288,7 +288,7 @@ public class RiskMonitoringService {
     /**
      * Reset daily tracking for all accounts (scheduled job)
      */
-    @Scheduled(cron = RiskConstants.DAILY_RESET_CRON)
+    @Scheduled(cron = RiskConstants.DAILY_RESET_CRON, zone = "UTC")
     public void performDailyReset() {
         logger.info("Starting daily risk reset for all accounts");
         

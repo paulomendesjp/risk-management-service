@@ -27,6 +27,7 @@
         <module>position-service</module>
         <module>risk-monitoring-service</module>
         <module>notification-service</module>
+        <module>kraken-service</module>
     </modules>
     
     <dependencyManagement>
@@ -114,4 +115,5 @@
         </pluginRepository>
     </pluginRepositories>
 </project>
+
 

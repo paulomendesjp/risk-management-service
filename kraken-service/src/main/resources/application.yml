@@ -1,0 +1,174 @@
+server:
+  port: 8086
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: kraken-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  # MongoDB Configuration
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017/kraken_trading}
+      auto-index-creation: true
+
+  # RabbitMQ Configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+
+  # Jackson Configuration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Kraken API Configuration
+kraken:
+  api:
+    base-url: ${KRAKEN_BASE_URL:https://futures.kraken.com}
+    demo-url: ${KRAKEN_DEMO_URL:https://demo-futures.kraken.com}
+    use-demo: ${KRAKEN_USE_DEMO:true}
+    timeout: ${KRAKEN_TIMEOUT:30}
+
+  trading:
+    max-retry: ${KRAKEN_MAX_RETRY:3}
+    pyramid-max-orders: ${KRAKEN_PYRAMID_MAX:5}
+    default-leverage: ${KRAKEN_DEFAULT_LEVERAGE:1}
+
+  risk:
+    daily-reset-time: ${KRAKEN_DAILY_RESET:00:01}
+    timezone: ${KRAKEN_TIMEZONE:UTC}
+    max-daily-loss-percent: ${KRAKEN_MAX_DAILY_LOSS:5.0}
+    max-total-loss-percent: ${KRAKEN_MAX_TOTAL_LOSS:20.0}
+
+# Service URLs
+service:
+  urls:
+    user-service: ${USER_SERVICE_URL:http://localhost:8081}
+    risk-monitoring: ${RISK_SERVICE_URL:http://localhost:8085}
+    notification: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+    api-gateway: ${API_GATEWAY_URL:http://localhost:8080}
+
+# Kraken Specific Configuration
+kraken:
+  monitoring:
+    mode: ${KRAKEN_MONITORING_MODE:websocket}  # websocket or polling
+    interval: ${KRAKEN_MONITORING_INTERVAL:10000}  # 10 seconds (for polling mode)
+  websocket:
+    url: wss://ws-auth.kraken.com/v2
+    reconnect:
+      enabled: true
+      interval: 5000  # 5 seconds
+
+# Logging Configuration
+logging:
+  level:
+    com.interview.challenge.kraken: ${LOG_LEVEL:DEBUG}
+    org.springframework.web: INFO
+    org.springframework.data.mongodb: ${MONGO_LOG_LEVEL:INFO}
+    org.springframework.amqp: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:logs/kraken-service.log}
+    max-size: 10MB
+    max-history: 30
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Jasypt Encryption Configuration
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:mySecretKey}
+    algorithm: PBEWithMD5AndDES
+    key-obtention-iterations: 1000
+    pool-size: 1
+    provider-name: SunJCE
+    salt-generator-classname: org.jasypt.salt.RandomSaltGenerator
+    string-output-type: base64
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+# Async Configuration
+async:
+  executor:
+    core-pool-size: 5
+    max-pool-size: 10
+    queue-capacity: 100
+    thread-name-prefix: kraken-async-
+
+# Scheduled Tasks Configuration
+scheduling:
+  pool-size: 3
+  thread-name-prefix: kraken-scheduled-
+
+  tasks:
+    balance-check:
+      enabled: ${BALANCE_CHECK_ENABLED:true}
+      interval: ${BALANCE_CHECK_INTERVAL:30000}
+
+    risk-check:
+      enabled: ${RISK_CHECK_ENABLED:true}
+      interval: ${RISK_CHECK_INTERVAL:60000}
+
+    daily-reset:
+      enabled: ${DAILY_RESET_ENABLED:true}
+      cron: ${DAILY_RESET_CRON:0 1 0 * * *}
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      kraken-api:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        event-consumer-buffer-size: 10
+
+# Feign Client Configuration
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 30000
+        logger-level: BASIC
+
+# Custom Properties
+app:
+  version: 1.0.0
+  description: Kraken Futures Trading Service for Risk Management System

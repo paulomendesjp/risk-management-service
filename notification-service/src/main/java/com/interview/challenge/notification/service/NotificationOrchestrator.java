@@ -2,7 +2,7 @@ package com.interview.challenge.notification.service;
 
 import com.interview.challenge.notification.handler.EventLogHandlerRegistry;
 import com.interview.challenge.shared.event.NotificationEvent;
-import com.interview.challenge.shared.enums.NotificationEventType;
+import com.interview.challenge.shared.event.NotificationType;
 import com.interview.challenge.shared.enums.NotificationPriority;
 import com.interview.challenge.shared.audit.MandatoryAuditLogger;
 import com.interview.challenge.notification.model.NotificationHistory;
@@ -126,6 +126,7 @@ public class NotificationOrchestrator {
             history.setNewBalance(event.getNewBalance());
             history.setPreviousBalance(event.getPreviousBalance());
             history.setSource(event.getSource());
+            history.setExchange(event.getExchange());
             history.setTimestamp(event.getTimestamp());
             history.setCreatedAt(LocalDateTime.now());
             
@@ -148,7 +149,7 @@ public class NotificationOrchestrator {
     private void routeToNotificationChannels(NotificationEvent event) {
         try {
             NotificationPriority priority = event.getPriority();
-            NotificationEventType eventType = event.getEventType();
+            NotificationType eventType = event.getEventType();
             
             // Always send to WebSocket for real-time UI updates
             sendWebSocketNotification(event);
@@ -162,8 +163,8 @@ public class NotificationOrchestrator {
             
             // Send Slack for critical events and risk violations
             if (priority == NotificationPriority.CRITICAL ||
-                eventType == NotificationEventType.MAX_RISK_TRIGGERED ||
-                eventType == NotificationEventType.DAILY_RISK_TRIGGERED) {
+                eventType == NotificationType.MAX_RISK_TRIGGERED ||
+                eventType == NotificationType.DAILY_RISK_TRIGGERED) {
                 
                 sendSlackNotification(event);
             }

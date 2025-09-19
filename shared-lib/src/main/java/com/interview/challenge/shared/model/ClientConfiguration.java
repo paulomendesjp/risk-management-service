@@ -40,6 +40,8 @@ public class ClientConfiguration {
     @NotNull(message = "Daily risk configuration is required")
     private RiskLimit dailyRisk;
 
+    private String exchange = "ARCHITECT"; // ARCHITECT or KRAKEN
+
     // Blocking status
     private boolean dailyBlocked = false;
     private boolean permanentBlocked = false;
@@ -233,6 +235,14 @@ public class ClientConfiguration {
 
     public void setPermanentBlockedAt(LocalDateTime permanentBlockedAt) {
         this.permanentBlockedAt = permanentBlockedAt;
+    }
+
+    public String getExchange() {
+        return exchange;
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
     }
 
     @Override

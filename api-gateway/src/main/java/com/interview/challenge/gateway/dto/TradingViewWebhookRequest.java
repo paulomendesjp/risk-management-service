@@ -79,6 +79,13 @@ public class TradingViewWebhookRequest {
     @JsonProperty("riskPercentage")
     private BigDecimal riskPercentage;
 
+    // New fields for Kraken integration
+    @JsonProperty("maxriskperday%")
+    private BigDecimal maxRiskPerDay; // Daily risk limit in percentage
+
+    @JsonProperty("stopLoss%")
+    private BigDecimal stopLossPercentage; // Stop loss in percentage
+
     /**
      * Validate the webhook request
      */
@@ -101,5 +108,23 @@ public class TradingViewWebhookRequest {
      */
     public String getOrderTypeOrDefault() {
         return orderType != null ? orderType : "MARKET";
+    }
+
+    /**
+     * Determine the exchange to use (KRAKEN or ARCHITECT)
+     * If exchange field is not set, defaults to ARCHITECT for backward compatibility
+     */
+    public String getTargetExchange() {
+        if (exchange != null && exchange.toUpperCase().contains("KRAKEN")) {
+            return "KRAKEN";
+        }
+        return "ARCHITECT";
+    }
+
+    /**
+     * Check if this is a Kraken order
+     */
+    public boolean isKrakenOrder() {
+        return "KRAKEN".equals(getTargetExchange());
     }
 }

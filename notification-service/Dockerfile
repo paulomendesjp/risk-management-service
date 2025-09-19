@@ -14,6 +14,7 @@ COPY user-service/pom.xml /app/user-service/
 COPY position-service/pom.xml /app/position-service/
 COPY risk-monitoring-service/pom.xml /app/risk-monitoring-service/
 COPY notification-service/pom.xml /app/notification-service/
+COPY kraken-service/pom.xml /app/kraken-service/
 
 # Copy source for this service
 COPY notification-service/src /app/notification-service/src

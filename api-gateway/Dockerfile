@@ -11,6 +11,7 @@ COPY user-service/pom.xml user-service/
 COPY risk-monitoring-service/pom.xml risk-monitoring-service/
 COPY position-service/pom.xml position-service/
 COPY notification-service/pom.xml notification-service/
+COPY kraken-service/pom.xml kraken-service/
 
 # Copy shared-lib source (dependency)
 COPY shared-lib/src shared-lib/src

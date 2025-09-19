@@ -1,81 +1,39 @@
-2025-09-16 10:09:47 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-16T10:09:47.420",
-  "clientId" : "jpmendesnas20",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-16 10:09:47 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-16T10:09:47.493",
-  "clientId" : "jpmendesnas20",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-16 10:10:01 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-16T10:10:01.222",
-  "clientId" : "jpmendesnas20",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-16 10:10:01 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-16T10:10:01.241",
-  "clientId" : "jpmendesnas20",
-  "previousBalance" : -2.0,
-  "newBalance" : -2.0,
-  "change" : 0.0,
-  "severity" : "INFO"
-}
-2025-09-16 16:32:21 🚨 MAX RISK LIMIT TRIGGERED: {
-  "event" : "MAX_RISK_TRIGGERED",
-  "timestamp" : "2025-09-16T16:32:21.763",
-  "clientId" : "jpmendesnas21",
-  "currentTotalLoss" : 2.0,
-  "maxRiskLimit" : 0.0,
-  "violationPercentage" : 0,
-  "action" : "CLOSE_ALL_POSITIONS",
-  "severity" : "CRITICAL"
-}
-2025-09-16 16:32:22 💰 BALANCE UPDATE: {
-  "event" : "BALANCE_UPDATE",
-  "timestamp" : "2025-09-16T16:32:22.029",
-  "clientId" : "jpmendesnas21",
-  "previousBalance" : 0,
-  "newBalance" : -2.0,
-  "change" : -2.0,
-  "severity" : "INFO"
-}
-Curl
 
- curl -X POST 'http://205.172.56.220:8083/api/positions/orders' \
-  -H 'Content-Type: application/json' \
-  -H 'X-API-KEY: Fn3HEQ6BwxAbYu8Wkpl4G62q' \
-  -H 'X-API-SECRET: 9VsKQri8mKqxKKWVvHoGAoUFh19j27iG1cktQ8oNpK2A' \
-  -d '{
-    "clientId": "test_client_007",
-    "symbol": "BTC 20250926 CME Future/USD",
-    "action": "BUY",
-    "orderQty": 0.001,
-    "orderType": "MARKET"
-  }'
-curl -X POST 'http://localhost:80/webhook/tradingview' \
- -H 'Content-Type: application/json' \
- -H 'X-API-KEY: Fn3HEQ6BwxAbYu8Wkpl4G62q' \
- -H 'X-API-SECRET: 9VsKQri8mKqxKKWVvHoGAoUFh19j27iG1cktQ8oNpK2A' \
- -d '{
-   "clientId": "test_client_007",
-   "symbol": "BTC 20250926 CME Future/USD",
-   "action": "BUY",
-   "orderQty": 0.001,
-   "orderType": "MARKET"
- }'
+curl -X 'GET' \
+  'http://205.172.56.220:8081/api/users/all' \
+  -H 'accept: */*'
+
+curl -H "api-key:3PM4RmJ5T3nxbUolqcXHHsGFuoqNb3W4H/xSEQgvhH0PKGaiAjgcSA==" \
+       -H "api-secret:R5ff8CJEexXmvAX/BS8D4KGN/+ux/PtBJXicoDwwarhHMH0QF8ElQFtwBBFe0Fr8EBMubwmdOk8=" \
+       http://205.172.56.220:8090/accounts/balance
+  curl -H "api-key: 3PM4RmJ5T3nxbUolqcXHHsGFuoqNb3W4H/xSEQgvhH0PKGaiAjgcSA==" \
+               -H "api-secret: R5ff8CJEexXmvAX/BS8D4KGN/+ux/PtBJXicoDwwarhHMH0QF8ElQFtwBBFe0Fr8EBMubwmdOk8=" \
+       http://205.172.56.220:8090/accounts/balance
+docker exec -it risk-management-db mongosh -u admin -p password123 --authenticationDatabase admin --eval "use risk_management; db.accountMonitoring.find({clientId: 'devtest'}).pretty()"
+
+
+ sshpass -p "Host@9090" ssh -o StrictHostKeyChecking=no root@205.172.56.220
+
+docker logs -f risk-monitoring-service | grep -E "checkRiskLimits.*devtest|RISK TRIGGERED|Configuration  retrieved.*devtest"
+  docker logs -f risk-monitoring-service
+
+    docker logs -f architect-bridge
+
+
+
+ curl -X 'GET' \
+   'http://205.172.56.220:8082/api/risk/status/dev2' \
+   -H 'accept: */*'
+
+docker logs risk-monitoring-service --tail 300 | grep -A15 "Polling balance for client devtest"
+
+docker-compose build risk-monitoring-service  up -d
+docker-compose  up -d
+
+ docker-compose logs risk-monitoring-service 2>&1 | grep -E "ERROR|WARN|Exception|Failed" | tail -20
+ cd /opt/risk-management/  docker-compose logs risk-monitoring-service 2>&1 | grep -E "ERROR|WARN|Exception|Failed" | tail -20
+cat /opt/risk-management/notification-service/log/mandatory-audit.log
+  docker logs -f risk-monitoring-service
+
+
+  docker exec -it risk-management-db mongo -u admin -p password123 --authenticationDatabase admin  ││   risk_management --eval "db.account_monitoring.find().pretty()"

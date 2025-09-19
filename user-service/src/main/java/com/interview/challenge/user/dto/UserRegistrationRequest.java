@@ -36,7 +36,9 @@ public class UserRegistrationRequest {
     private RiskLimitDto dailyRisk;
 
     @PositiveOrZero(message = "Initial balance must be positive or zero")
-    private BigDecimal initialBalance;  // Optional: if not provided, fetches from Architect
+    private BigDecimal initialBalance;  // Optional: if not provided, fetches from exchange
+
+    private String exchange = "ARCHITECT";  // ARCHITECT or KRAKEN (default: ARCHITECT for backward compatibility)
 
     // Constructors
     public UserRegistrationRequest() {}
@@ -99,6 +101,14 @@ public class UserRegistrationRequest {
         this.initialBalance = initialBalance;
     }
 
+    public String getExchange() {
+        return exchange;
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
+    }
+
     /**
      * Risk Limit DTO
      * 
@@ -156,4 +166,5 @@ public class UserRegistrationRequest {
                            clientId, maxRisk, dailyRisk);
     }
 }
+
 

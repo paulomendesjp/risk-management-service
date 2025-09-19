@@ -3,6 +3,7 @@ package com.interview.challenge.gateway.service;
 import com.interview.challenge.gateway.dto.TradingViewWebhookRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -34,6 +35,15 @@ public class WebhookService {
     @Value("${architect.bridge.url:http://architect-bridge:8090}")
     private String architectBridgeUrl;
 
+    @Value("${kraken.service.url:http://kraken-service:8086}")
+    private String krakenServiceUrl;
+
+    @Value("${webhook.processing.use-queue:false}")
+    private boolean useQueueProcessing;
+
+    @Autowired(required = false)
+    private RabbitTemplate rabbitTemplate;
+
     @Autowired
     public WebhookService(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder
@@ -51,8 +61,122 @@ public class WebhookService {
             return Mono.error(new IllegalArgumentException("Invalid webhook request"));
         }
 
-        logger.info("Processing TradingView webhook for client: {} - Action: {}",
-                request.getClientId(), request.getNormalizedAction());
+        logger.info("Processing TradingView webhook for client: {} - Action: {} - Exchange: {}",
+                request.getClientId(), request.getNormalizedAction(), request.getTargetExchange());
+
+        // Route to appropriate exchange service
+        if (request.isKrakenOrder()) {
+            return processKrakenWebhook(request);
+        } else {
+            return processArchitectWebhook(request);
+        }
+    }
+
+    /**
+     * Process webhook for Kraken exchange
+     */
+    private Mono<Map<String, Object>> processKrakenWebhook(TradingViewWebhookRequest request) {
+        logger.info("🦑 Routing to Kraken service for client: {}", request.getClientId());
+
+        // Decide se usa fila ou chamada direta
+        if (useQueueProcessing && rabbitTemplate != null) {
+            return processKrakenViaQueue(request);
+        } else {
+            return processKrakenDirectly(request);
+        }
+    }
+
+    /**
+     * Processa Kraken via fila RabbitMQ (assíncrono)
+     */
+    private Mono<Map<String, Object>> processKrakenViaQueue(TradingViewWebhookRequest request) {
+        logger.info("📨 Enviando ordem para fila RabbitMQ: {}", request.getClientId());
+
+        return getClientCredentials(request.getClientId())
+                .flatMap(credentials -> {
+                    try {
+                        // Preparar mensagem com credenciais
+                        Map<String, Object> message = new HashMap<>();
+                        message.put("clientId", request.getClientId());
+                        message.put("symbol", request.getSymbol());
+                        message.put("action", request.getAction());
+                        message.put("orderQty", request.getOrderQty());
+                        message.put("strategy", request.getStrategy());
+                        message.put("exchange", request.getExchange());
+                        message.put("maxriskperday%", request.getMaxRiskPerDay());
+                        message.put("stopLoss%", request.getStopLossPercentage());
+                        message.put("inverse", request.getInverse());
+                        message.put("pyramid", request.getPyramid());
+                        message.put("apiKey", credentials.get("apiKey"));
+                        message.put("apiSecret", credentials.get("apiSecret"));
+
+                        // Enviar para fila
+                        rabbitTemplate.convertAndSend(
+                            "trading.exchange",
+                            "trading.kraken",
+                            message
+                        );
+
+                        logger.info("✅ Mensagem enviada para fila com sucesso");
+
+                        // Retornar resposta de aceito
+                        Map<String, Object> response = new HashMap<>();
+                        response.put("success", true);
+                        response.put("status", "QUEUED");
+                        response.put("message", "Order queued for processing");
+                        response.put("clientId", request.getClientId());
+                        response.put("timestamp", System.currentTimeMillis());
+
+                        return Mono.just(response);
+
+                    } catch (Exception e) {
+                        logger.error("❌ Erro ao enviar para fila: {}", e.getMessage());
+                        return Mono.error(new RuntimeException("Failed to queue order: " + e.getMessage()));
+                    }
+                });
+    }
+
+    /**
+     * Processa Kraken diretamente via HTTP (síncrono)
+     */
+    private Mono<Map<String, Object>> processKrakenDirectly(TradingViewWebhookRequest request) {
+        logger.info("🔄 Processando ordem diretamente via HTTP");
+
+        return getClientCredentials(request.getClientId())
+                .flatMap(credentials -> {
+                    String apiKey = (String) credentials.get("apiKey");
+                    String apiSecret = (String) credentials.get("apiSecret");
+
+                    if (apiKey == null || apiSecret == null) {
+                        logger.error("No credentials found for client: {}", request.getClientId());
+                        return Mono.error(new IllegalStateException("Client credentials not found"));
+                    }
+
+                    String url = krakenServiceUrl + "/api/kraken/webhook";
+
+                    return webClient.post()
+                            .uri(url)
+                            .header("X-API-KEY", apiKey)
+                            .header("X-API-SECRET", apiSecret)
+                            .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                            .bodyValue(request)
+                            .retrieve()
+                            .bodyToMono(Map.class)
+                            .map(response -> (Map<String, Object>) response)
+                            .timeout(Duration.ofSeconds(30))
+                            .doOnSuccess(response -> logger.info("✅ Kraken webhook processed successfully"))
+                            .onErrorResume(error -> {
+                                logger.error("❌ Kraken webhook processing failed: {}", error.getMessage());
+                                return Mono.error(new RuntimeException("Kraken processing failed: " + error.getMessage()));
+                            });
+                });
+    }
+
+    /**
+     * Process webhook for Architect exchange (existing logic)
+     */
+    private Mono<Map<String, Object>> processArchitectWebhook(TradingViewWebhookRequest request) {
+        logger.info("🏛️ Routing to Architect service for client: {}", request.getClientId());
 
         // First, get client credentials from user service
         return getClientCredentials(request.getClientId())

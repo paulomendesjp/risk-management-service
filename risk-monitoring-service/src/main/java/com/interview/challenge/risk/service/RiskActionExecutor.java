@@ -12,10 +12,15 @@ import com.interview.challenge.shared.client.PositionServiceClient;
 import com.interview.challenge.shared.client.UserServiceClient;
 import com.interview.challenge.shared.dto.ClosePositionsResult;
 import com.interview.challenge.shared.event.NotificationEvent;
+import com.interview.challenge.shared.model.ClientConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -42,6 +47,16 @@ public class RiskActionExecutor {
 
     @Autowired
     private NotificationPublisher notificationPublisher;
+
+    @Value("${kraken.service.url:http://kraken-service:8086}")
+    private String krakenServiceUrl;
+
+    private final WebClient webClient;
+
+    @Autowired
+    public RiskActionExecutor(WebClient.Builder webClientBuilder) {
+        this.webClient = webClientBuilder.build();
+    }
 
     /**
      * Execute risk actions based on violation type
@@ -129,11 +144,18 @@ public class RiskActionExecutor {
     }
 
     /**
-     * Close all positions for a client
+     * Close all positions for a client (supports both Architect and Kraken)
      */
     private ClosePositionsResult closeAllPositions(String clientId, String reason) {
         try {
-            logger.info("📊 Closing all positions for client {} via Position Service. Reason: {}", clientId, reason);
+            logger.info("📊 Closing all positions for client {}. Reason: {}", clientId, reason);
+
+            // Get client configuration to determine exchange
+            ClientConfiguration clientConfig = userServiceClient.getClientConfiguration(clientId);
+            if (clientConfig == null) {
+                logger.error("❌ Unable to get client configuration for {}", clientId);
+                return createFailedCloseResult("Client configuration not found");
+            }
 
             // Get client credentials from User Service
             Map<String, String> credentials = userServiceClient.getDecryptedCredentials(clientId);
@@ -142,33 +164,89 @@ public class RiskActionExecutor {
                 return createFailedCloseResult("Unable to retrieve API credentials");
             }
 
-            // Set credentials in ThreadLocal for the interceptor
-            ArchitectAuthInterceptor.CREDENTIALS.set(
-                new ArchitectAuthInterceptor.ApiCredentials(
-                    credentials.get("apiKey"),
-                    credentials.get("apiSecret")
-                )
-            );
+            String exchange = clientConfig.getExchange() != null ? clientConfig.getExchange() : "ARCHITECT";
 
-            try {
-                ClosePositionsResult result = positionServiceClient.closeAllPositions(clientId, reason);
-
-                if (!result.isSuccess()) {
-                    logger.warn("⚠️ Failed to close positions for client {}: {}", clientId, result.getMessage());
-                } else {
-                    logger.info("✅ Position closure completed for client {}: {} positions closed",
-                        clientId, result.getPositionsClosed());
-                }
-
-                return result;
-            } finally {
-                // Clean up ThreadLocal
-                ArchitectAuthInterceptor.CREDENTIALS.remove();
+            if ("KRAKEN".equalsIgnoreCase(exchange)) {
+                // Close positions via Kraken service
+                return closeKrakenPositions(clientId, credentials.get("apiKey"), credentials.get("apiSecret"), reason);
+            } else {
+                // Close positions via Architect (existing logic)
+                return closeArchitectPositions(clientId, credentials.get("apiKey"), credentials.get("apiSecret"), reason);
             }
 
         } catch (Exception e) {
             logger.error("❌ Error closing positions for client {}: {}", clientId, e.getMessage());
             return createFailedCloseResult(e.getMessage());
+        }
+    }
+
+    /**
+     * Close all positions on Architect exchange
+     */
+    private ClosePositionsResult closeArchitectPositions(String clientId, String apiKey, String apiSecret, String reason) {
+        logger.info("🏛️ Closing Architect positions for client {}", clientId);
+
+        // Set credentials in ThreadLocal for the interceptor
+        ArchitectAuthInterceptor.CREDENTIALS.set(
+            new ArchitectAuthInterceptor.ApiCredentials(apiKey, apiSecret)
+        );
+
+        try {
+            ClosePositionsResult result = positionServiceClient.closeAllPositions(clientId, reason);
+
+            if (!result.isSuccess()) {
+                logger.warn("⚠️ Failed to close Architect positions for client {}: {}", clientId, result.getMessage());
+            } else {
+                logger.info("✅ Architect position closure completed for client {}: {} positions closed",
+                    clientId, result.getPositionsClosed());
+            }
+
+            return result;
+        } finally {
+            // Clean up ThreadLocal
+            ArchitectAuthInterceptor.CREDENTIALS.remove();
+        }
+    }
+
+    /**
+     * Close all positions on Kraken exchange
+     */
+    private ClosePositionsResult closeKrakenPositions(String clientId, String apiKey, String apiSecret, String reason) {
+        logger.info("🦑 Closing Kraken positions for client {}", clientId);
+
+        try {
+            String url = krakenServiceUrl + "/api/kraken/positions/close-all/" + clientId;
+
+            Map<String, Object> response = webClient.post()
+                    .uri(url)
+                    .header("X-API-Key", apiKey)
+                    .header("X-API-Secret", apiSecret)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            if (response != null && Boolean.TRUE.equals(response.get("success"))) {
+                ClosePositionsResult result = new ClosePositionsResult();
+                result.setSuccess(true);
+                result.setPositionsClosed((Integer) response.getOrDefault("positionsClosed", 0));
+                result.setTotalValue(BigDecimal.valueOf((Double) response.getOrDefault("totalValue", 0.0)));
+                result.setMessage("Kraken positions closed: " + reason);
+
+                logger.info("✅ Kraken position closure completed for client {}: {} positions closed",
+                    clientId, result.getPositionsClosed());
+
+                return result;
+            } else {
+                String errorMsg = response != null ?
+                    (String) response.getOrDefault("error", "Unknown error") : "No response";
+                logger.error("❌ Failed to close Kraken positions: {}", errorMsg);
+                return createFailedCloseResult("Kraken closure failed: " + errorMsg);
+            }
+
+        } catch (Exception e) {
+            logger.error("❌ Error closing Kraken positions for client {}: {}", clientId, e.getMessage());
+            return createFailedCloseResult("Kraken API error: " + e.getMessage());
         }
     }
 

@@ -39,3 +39,4 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                 .setAllowedOriginPatterns("*");
     }
 }
+

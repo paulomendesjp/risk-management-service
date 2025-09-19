@@ -231,6 +231,58 @@ services:
       retries: 5
       start_period: 60s
 
+  # Kraken Trading Service
+  kraken-service:
+    build:
+      context: .
+      dockerfile: ./kraken-service/Dockerfile
+    container_name: kraken-service
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # MongoDB Configuration
+      MONGO_URI: mongodb://admin:password123@mongodb:27017/kraken_trading?authSource=admin
+      # RabbitMQ Configuration
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: password123
+      # Kraken API Configuration
+      KRAKEN_USE_DEMO: "true"
+      KRAKEN_TIMEOUT: 30
+      # Service URLs
+      USER_SERVICE_URL: http://user-service:8081
+      RISK_SERVICE_URL: http://risk-monitoring-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      API_GATEWAY_URL: http://api-gateway:80
+      # Logging
+      LOG_LEVEL: INFO
+      MONGO_LOG_LEVEL: INFO
+      # Monitoring Configuration
+      BALANCE_CHECK_ENABLED: "true"
+      BALANCE_CHECK_INTERVAL: 10000
+      RISK_CHECK_ENABLED: "true"
+      RISK_CHECK_INTERVAL: 30000
+      DAILY_RESET_ENABLED: "true"
+      DAILY_RESET_CRON: "0 1 0 * * *"
+    ports:
+      - "8086:8086"
+    volumes:
+      - ./kraken-service/logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - risk-management-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
     # Architect Bridge Service - Python WebSocket Bridge
   architect-bridge:
     build:
@@ -275,6 +327,7 @@ services:
       POSITION_SERVICE_URL: http://position-service:8082
       RISK_SERVICE_URL: http://risk-monitoring-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      KRAKEN_SERVICE_URL: http://kraken-service:8086
       ARCHITECT_BRIDGE_URL: http://architect-bridge:8090
     ports:
       - "80:80"
@@ -284,6 +337,7 @@ services:
       - user-service
       - position-service
       - risk-monitoring-service
+      - kraken-service
     networks:
       - risk-management-network
     healthcheck:

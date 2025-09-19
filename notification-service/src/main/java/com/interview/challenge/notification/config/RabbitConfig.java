@@ -17,6 +17,8 @@ public class RabbitConfig {
     // Queue names
     public static final String NOTIFICATIONS_QUEUE = "notifications";
     public static final String NOTIFICATIONS_DLQ = "notifications.dlq";
+    public static final String BALANCE_UPDATE_QUEUE = "balance.update.queue";
+    public static final String NOTIFICATION_QUEUE = "notification.queue";
     
     // Exchange names
     public static final String NOTIFICATIONS_EXCHANGE = "notifications.exchange";
@@ -90,4 +92,29 @@ public class RabbitConfig {
                 .to(deadLetterExchange())
                 .with("notifications.failed");
     }
+
+    /**
+     * Balance update queue for Kraken events
+     */
+    @Bean
+    public Queue balanceUpdateQueue() {
+        return QueueBuilder
+                .durable(BALANCE_UPDATE_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", "balance.failed")
+                .build();
+    }
+
+    /**
+     * General notification queue for Kraken events
+     */
+    @Bean
+    public Queue notificationQueue() {
+        return QueueBuilder
+                .durable(NOTIFICATION_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", "notification.failed")
+                .build();
+    }
 }
+

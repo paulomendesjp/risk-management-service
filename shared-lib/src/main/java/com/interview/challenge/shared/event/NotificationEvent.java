@@ -1,6 +1,5 @@
 package com.interview.challenge.shared.event;
 
-import com.interview.challenge.shared.enums.NotificationEventType;
 import com.interview.challenge.shared.enums.NotificationPriority;
 
 import java.math.BigDecimal;
@@ -23,8 +22,6 @@ import java.util.Map;
  * - SYSTEM_EVENT: General system event
  */
 public class NotificationEvent {
-
-    private NotificationEventType eventType;
     private String clientId;
     private NotificationPriority priority;
     private String message;
@@ -34,15 +31,18 @@ public class NotificationEvent {
     private BigDecimal newBalance;
     private BigDecimal previousBalance;
     private String source;
+    private String exchange;
     private LocalDateTime timestamp;
     private Map<String, Object> additionalData;
+    private NotificationType eventType;
+    private Map<String, Object> details;
     
     // Constructors
     public NotificationEvent() {
         this.timestamp = LocalDateTime.now();
     }
     
-    public NotificationEvent(NotificationEventType eventType, String clientId, NotificationPriority priority, String message) {
+    public NotificationEvent(NotificationType eventType, String clientId, NotificationPriority priority, String message) {
         this.eventType = eventType;
         this.clientId = clientId;
         this.priority = priority;
@@ -61,12 +61,12 @@ public class NotificationEvent {
      */
     public static NotificationEvent maxRiskTriggered(String clientId, BigDecimal loss, BigDecimal limit) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.MAX_RISK_TRIGGERED);
+        event.setEventType(NotificationType.MAX_RISK_TRIGGERED);
         event.setClientId(clientId);
         event.setPriority(NotificationPriority.CRITICAL);
         event.setLoss(loss);
         event.setLimit(limit);
-        event.setMessage(String.format("MAX RISK LIMIT EXCEEDED for client %s: Loss $%s >= Limit $%s", 
+        event.setMessage(String.format("MAX RISK LIMIT EXCEEDED for client %s: Loss $%s >= Limit $%s",
                                       clientId, loss, limit));
         event.setAction("All positions closed. Trading permanently disabled.");
         return event;
@@ -81,12 +81,12 @@ public class NotificationEvent {
      */
     public static NotificationEvent dailyRiskTriggered(String clientId, BigDecimal loss, BigDecimal limit) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.DAILY_RISK_TRIGGERED);
+        event.setEventType(NotificationType.DAILY_RISK_TRIGGERED);
         event.setClientId(clientId);
         event.setPriority(NotificationPriority.HIGH);
         event.setLoss(loss);
         event.setLimit(limit);
-        event.setMessage(String.format("DAILY RISK LIMIT EXCEEDED for client %s: Daily Loss $%s >= Limit $%s", 
+        event.setMessage(String.format("DAILY RISK LIMIT EXCEEDED for client %s: Daily Loss $%s >= Limit $%s",
                                       clientId, loss, limit));
         event.setAction("All positions closed. Trading disabled for today.");
         return event;
@@ -100,13 +100,13 @@ public class NotificationEvent {
     public static NotificationEvent balanceUpdate(String clientId, BigDecimal newBalance,
                                                 BigDecimal previousBalance, String source) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.BALANCE_UPDATE);
+        event.setEventType(NotificationType.BALANCE_UPDATE);
         event.setClientId(clientId);
         event.setPriority(NotificationPriority.LOW);
         event.setNewBalance(newBalance);
         event.setPreviousBalance(previousBalance);
         event.setSource(source);
-        event.setMessage(String.format("Balance updated for client %s: $%s -> $%s (source: %s)", 
+        event.setMessage(String.format("Balance updated for client %s: $%s -> $%s (source: %s)",
                                       clientId, previousBalance, newBalance, source));
         return event;
     }
@@ -118,7 +118,7 @@ public class NotificationEvent {
      */
     public static NotificationEvent monitoringError(String clientId, String errorMessage) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.MONITORING_ERROR);
+        event.setEventType(NotificationType.MONITORING_ERROR);
         event.setClientId(clientId);
         event.setPriority(NotificationPriority.HIGH);
         event.setMessage(String.format("Monitoring error for client %s: %s", clientId, errorMessage));
@@ -132,10 +132,10 @@ public class NotificationEvent {
      */
     public static NotificationEvent positionClosed(String clientId, String reason, int closedCount, int failedCount) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.POSITION_CLOSED);
+        event.setEventType(NotificationType.POSITION_CLOSED);
         event.setClientId(clientId);
         event.setPriority(NotificationPriority.NORMAL);
-        event.setMessage(String.format("Positions closed for client %s: %d closed, %d failed. Reason: %s", 
+        event.setMessage(String.format("Positions closed for client %s: %d closed, %d failed. Reason: %s",
                                       clientId, closedCount, failedCount, reason));
         event.setAction(String.format("%d positions closed, %d failed", closedCount, failedCount));
         return event;
@@ -148,7 +148,7 @@ public class NotificationEvent {
      */
     public static NotificationEvent accountBlocked(String clientId, String blockType, String reason) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.ACCOUNT_BLOCKED);
+        event.setEventType(NotificationType.ACCOUNT_BLOCKED);
         event.setClientId(clientId);
         event.setPriority("PERMANENT".equals(blockType) ? NotificationPriority.CRITICAL : NotificationPriority.HIGH);
         event.setMessage(String.format("Account %s blocked for client %s: %s", blockType, clientId, reason));
@@ -163,16 +163,114 @@ public class NotificationEvent {
      */
     public static NotificationEvent systemEvent(String eventType, String message) {
         NotificationEvent event = new NotificationEvent();
-        event.setEventType(NotificationEventType.SYSTEM_EVENT);
+        event.setEventType(NotificationType.SYSTEM_EVENT);
         event.setPriority(NotificationPriority.NORMAL);
         event.setMessage(message);
+        return event;
+    }
+
+    /**
+     * Builder pattern for creating notification events
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private NotificationEvent event = new NotificationEvent();
+
+        public Builder clientId(String clientId) {
+            event.setClientId(clientId);
+            return this;
+        }
+
+        public Builder eventType(NotificationType eventType) {
+            event.setEventType(eventType);
+            return this;
+        }
+
+        public Builder exchange(String exchange) {
+            event.setExchange(exchange);
+            return this;
+        }
+
+        public Builder details(Map<String, Object> details) {
+            event.setDetails(details);
+            return this;
+        }
+
+        public Builder message(String message) {
+            event.setMessage(message);
+            return this;
+        }
+
+        public Builder priority(NotificationPriority priority) {
+            event.setPriority(priority);
+            return this;
+        }
+
+        public Builder previousBalance(BigDecimal previousBalance) {
+            event.setPreviousBalance(previousBalance);
+            return this;
+        }
+
+        public Builder newBalance(BigDecimal newBalance) {
+            event.setNewBalance(newBalance);
+            return this;
+        }
+
+        public Builder loss(BigDecimal loss) {
+            event.setLoss(loss);
+            return this;
+        }
+
+        public Builder limit(BigDecimal limit) {
+            event.setLimit(limit);
+            return this;
+        }
+
+        public Builder source(String source) {
+            event.setSource(source);
+            return this;
+        }
+
+        public Builder timestamp(LocalDateTime timestamp) {
+            event.setTimestamp(timestamp);
+            return this;
+        }
+
+        public Builder action(String action) {
+            event.setAction(action);
+            return this;
+        }
+
+        public NotificationEvent build() {
+            return event;
+        }
+    }
+
+    /**
+     * Factory method for order placed notifications
+     */
+    public static NotificationEvent orderPlaced(String clientId, String symbol, String side, BigDecimal quantity, String orderId) {
+        NotificationEvent event = new NotificationEvent();
+        event.setClientId(clientId);
+        event.setMessage(String.format("Order placed: %s %s %s, Order ID: %s", side, quantity, symbol, orderId));
+        return event;
+    }
+
+    /**
+     * Factory method for positions closed notifications
+     */
+    public static NotificationEvent positionsClosed(String clientId, String details) {
+        NotificationEvent event = new NotificationEvent();
+        event.setClientId(clientId);
+        event.setMessage(String.format("Positions closed for client %s: %s", clientId, details));
         return event;
     }
     
     // ========== GETTERS AND SETTERS ==========
     
-    public NotificationEventType getEventType() { return eventType; }
-    public void setEventType(NotificationEventType eventType) { this.eventType = eventType; }
     
     public String getClientId() { return clientId; }
     public void setClientId(String clientId) { this.clientId = clientId; }
@@ -206,6 +304,15 @@ public class NotificationEvent {
     
     public Map<String, Object> getAdditionalData() { return additionalData; }
     public void setAdditionalData(Map<String, Object> additionalData) { this.additionalData = additionalData; }
+
+    public String getExchange() { return exchange; }
+    public void setExchange(String exchange) { this.exchange = exchange; }
+
+    public NotificationType getEventType() { return eventType; }
+    public void setEventType(NotificationType eventType) { this.eventType = eventType; }
+
+    public Map<String, Object> getDetails() { return details; }
+    public void setDetails(Map<String, Object> details) { this.details = details; }
     
     @Override
     public String toString() {

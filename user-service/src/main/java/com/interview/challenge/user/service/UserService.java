@@ -11,8 +11,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -49,6 +54,16 @@ public class UserService {
     @Autowired
     private EventPublisher eventPublisher;
 
+    @Value("${kraken.service.url:http://kraken-service:8086}")
+    private String krakenServiceUrl;
+
+    private final WebClient webClient;
+
+    @Autowired
+    public UserService(WebClient.Builder webClientBuilder) {
+        this.webClient = webClientBuilder.build();
+    }
+
     /**
      * Register a new user with API credentials and risk limits
      * Requirement 1: User Configuration
@@ -66,41 +81,55 @@ public class UserService {
             }
             
             BigDecimal initialBalance;
+            String targetExchange = request.getExchange() != null ? request.getExchange() : "ARCHITECT";
 
             // Check if initial balance was provided in the request
             if (request.getInitialBalance() != null && request.getInitialBalance().compareTo(BigDecimal.ZERO) >= 0) {
                 // Use provided initial balance
-                logger.info("💵 Using provided initial balance for client {}: ${}",
-                    clientId, request.getInitialBalance());
+                logger.info("💵 Using provided initial balance for client {} on {}: ${}",
+                    clientId, targetExchange, request.getInitialBalance());
                 initialBalance = request.getInitialBalance();
 
-                // Still validate credentials but don't use the balance
-                logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
-                try {
-                    architectApiService.validateCredentialsAndGetBalance(
-                        request.getApiKey(), request.getApiSecret());
-                    logger.info("✅ API credentials validated successfully for client: {}", clientId);
-                } catch (Exception e) {
-                    logger.warn("⚠️ Could not validate credentials with Architect: {}", e.getMessage());
-                    // Continue with registration even if validation fails
+                // Validate credentials based on exchange
+                if ("KRAKEN".equalsIgnoreCase(targetExchange)) {
+                    logger.info("🦑 Validating Kraken credentials for client: {}", clientId);
+                    validateKrakenCredentials(request.getApiKey(), request.getApiSecret());
+                } else {
+                    // Validate Architect credentials
+                    logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
+                    try {
+                        architectApiService.validateCredentialsAndGetBalance(
+                            request.getApiKey(), request.getApiSecret());
+                        logger.info("✅ Architect API credentials validated successfully for client: {}", clientId);
+                    } catch (Exception e) {
+                        logger.warn("⚠️ Could not validate credentials with Architect: {}", e.getMessage());
+                        // Continue with registration even if validation fails
+                    }
                 }
             } else {
-                // Fetch balance from Architect API
-                logger.info("📊 Fetching balance from Architect API for client: {}", clientId);
-                logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
-
-                try {
-                    ArchitectBalanceResponse balanceResponse = architectApiService.validateCredentialsAndGetBalance(
-                        request.getApiKey(), request.getApiSecret());
-                    initialBalance = balanceResponse.getBalance();
-                    logger.info("💰 Balance fetched from Architect: ${} for client: {}",
-                        initialBalance, clientId);
-                } catch (Exception e) {
-                    logger.error("❌ Failed to fetch balance from Architect for client {}: {}",
-                        clientId, e.getMessage());
-                    // Use zero as fallback
+                // Fetch balance from exchange
+                if ("KRAKEN".equalsIgnoreCase(targetExchange)) {
+                    logger.info("🦑 Kraken users must provide initial balance (Futures API doesn't provide balance)");
                     initialBalance = BigDecimal.ZERO;
-                    logger.warn("⚠️ Using default balance of 0 for client: {}", clientId);
+                    validateKrakenCredentials(request.getApiKey(), request.getApiSecret());
+                } else {
+                    // Fetch balance from Architect API
+                    logger.info("📊 Fetching balance from Architect API for client: {}", clientId);
+                    logger.debug(UserConstants.LOG_VALIDATING_CREDENTIALS, clientId);
+
+                    try {
+                        ArchitectBalanceResponse balanceResponse = architectApiService.validateCredentialsAndGetBalance(
+                            request.getApiKey(), request.getApiSecret());
+                        initialBalance = balanceResponse.getBalance();
+                        logger.info("💰 Balance fetched from Architect: ${} for client: {}",
+                            initialBalance, clientId);
+                    } catch (Exception e) {
+                        logger.error("❌ Failed to fetch balance from Architect for client {}: {}",
+                            clientId, e.getMessage());
+                        // Use zero as fallback
+                        initialBalance = BigDecimal.ZERO;
+                        logger.warn("⚠️ Using default balance of 0 for client: {}", clientId);
+                    }
                 }
             }
             
@@ -342,19 +371,22 @@ public class UserService {
      */
     private ClientConfiguration createClientConfiguration(UserRegistrationRequest request, BigDecimal initialBalance) {
         ClientConfiguration user = new ClientConfiguration();
-        
+
         user.setClientId(request.getClientId());
-        
+
         // Encrypt API credentials for security
         user.setApiKey(credentialManager.encryptCredential(request.getApiKey()));
         user.setApiSecret(credentialManager.encryptCredential(request.getApiSecret()));
-        
+
         user.setInitialBalance(initialBalance);
-        
+
+        // Set exchange type (default to ARCHITECT if not specified)
+        user.setExchange(request.getExchange() != null ? request.getExchange() : "ARCHITECT");
+
         // Convert risk limits from DTO format to entity format
         user.setMaxRisk(convertRiskLimit(request.getMaxRisk()));
         user.setDailyRisk(convertRiskLimit(request.getDailyRisk()));
-        
+
         return user;
     }
 
@@ -418,10 +450,10 @@ public class UserService {
      */
     public boolean validateUserCredentials(String clientId) {
         MDC.put("clientId", clientId);
-        
+
         try {
             Map<String, String> credentials = getDecryptedCredentials(clientId);
-            
+
             // Validate with Architect API
             ArchitectBalanceResponse balanceResponse = architectApiService.validateCredentialsAndGetBalance(
                 credentials.get("apiKey"), credentials.get("apiSecret"));
@@ -429,10 +461,38 @@ public class UserService {
 
             logger.info(UserConstants.LOG_CREDENTIALS_VALIDATED, clientId, balance);
             return true;
-            
+
         } catch (Exception e) {
             logger.error("Error validating credentials for user {}: {}", clientId, e.getMessage());
             throw new RuntimeException("Failed to validate credentials", e);
+        }
+    }
+
+    /**
+     * Validate Kraken API credentials
+     * Makes a simple API call to verify credentials are valid
+     */
+    private void validateKrakenCredentials(String apiKey, String apiSecret) {
+        try {
+            String validationUrl = krakenServiceUrl + "/api/kraken/validate-credentials";
+
+            Map<String, Object> response = webClient.post()
+                    .uri(validationUrl)
+                    .header("X-API-KEY", apiKey)
+                    .header("X-API-SECRET", apiSecret)
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+
+            if (response != null && Boolean.TRUE.equals(response.get("valid"))) {
+                logger.info("✅ Kraken API credentials validated successfully");
+            } else {
+                throw new IllegalArgumentException("Invalid Kraken API credentials");
+            }
+        } catch (Exception e) {
+            logger.error("❌ Failed to validate Kraken credentials: {}", e.getMessage());
+            throw new IllegalArgumentException("Failed to validate Kraken credentials: " + e.getMessage());
         }
     }
 }

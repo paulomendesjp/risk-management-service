@@ -1,0 +1,55 @@
+# Git files
+.git
+.gitignore
+
+# IDE files
+.idea
+*.iml
+.vscode
+.settings
+.project
+.classpath
+
+# Build directories (we'll build in Docker)
+*/target/
+!*/target/*.jar
+
+# Log files
+*.log
+logs/
+
+# Documentation
+*.md
+docs/
+
+# Test files
+*/src/test/
+
+# Node modules (if any frontend)
+node_modules/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python cache (for architect-bridge)
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker files (not needed in build context)
+docker-compose*.yml
+Dockerfile*
+.dockerignore

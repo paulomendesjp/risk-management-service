@@ -51,6 +51,12 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
+        <!-- WebClient for HTTP calls -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
         <!-- Jasypt for encryption -->
         <dependency>
             <groupId>com.github.ulisesbocchio</groupId>

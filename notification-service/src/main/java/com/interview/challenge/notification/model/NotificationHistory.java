@@ -37,6 +37,10 @@ public class NotificationHistory {
     private BigDecimal newBalance;
     private BigDecimal previousBalance;
     private String source;
+
+    // Exchange identification
+    @Indexed
+    private String exchange;
     
     // Timestamps
     @Indexed
@@ -96,6 +100,9 @@ public class NotificationHistory {
 
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
+
+    public String getExchange() { return exchange; }
+    public void setExchange(String exchange) { this.exchange = exchange; }
 
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }

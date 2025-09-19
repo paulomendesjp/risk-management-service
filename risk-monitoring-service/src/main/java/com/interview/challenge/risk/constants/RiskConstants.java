@@ -74,7 +74,8 @@ public final class RiskConstants {
     public static final String ACTION_DAILY_BLOCK = "All positions closed. Trading disabled for today.";
 
     // Cron Expressions
-    public static final String DAILY_RESET_CRON = "0 0 9 * * ?";
+    // Daily reset at 00:01 UTC for crypto markets (Kraken requirement)
+    public static final String DAILY_RESET_CRON = "0 1 0 * * ?";
 
     // WebSocket Alert Levels
     public static final String ALERT_LEVEL_CRITICAL = "CRITICAL";

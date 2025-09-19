@@ -1,0 +1,321 @@
+package com.interview.challenge.kraken.client;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.interview.challenge.kraken.dto.*;
+import com.interview.challenge.kraken.exception.KrakenApiException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Kraken Futures API Client
+ *
+ * Handles communication with Kraken Futures REST API
+ */
+@Slf4j
+@Component
+public class KrakenApiClient {
+
+    @Value("${kraken.api.base-url:https://futures.kraken.com}")
+    private String baseUrl;
+
+    @Value("${kraken.api.demo-url:https://demo-futures.kraken.com}")
+    private String demoUrl;
+
+    @Value("${kraken.api.use-demo:true}")
+    private boolean useDemo;
+
+    @Value("${kraken.api.timeout:30}")
+    private int timeout;
+
+    @Autowired
+    private KrakenAuthenticator authenticator;
+
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Autowired
+    private WebClient.Builder webClientBuilder;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    private static final String API_VERSION = "/derivatives/api/v3";
+
+    /**
+     * Get the appropriate base URL (demo or production)
+     */
+    private String getBaseUrl() {
+        return useDemo ? demoUrl : baseUrl;
+    }
+
+    /**
+     * Get account balance
+     */
+    public KrakenBalanceResponse getAccountBalance(String apiKey, String apiSecret) {
+        String path = API_VERSION + "/accounts";
+        String url = getBaseUrl() + path;
+
+        try {
+            log.info("Fetching Kraken account balance");
+
+            // Generate authentication
+            String nonce = authenticator.generateNonce();
+            String authent = authenticator.generateAuthent(apiSecret, path, nonce, "");
+
+            // Create headers
+            HttpHeaders headers = createHeaders(apiKey, authent, nonce);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            // Parse response
+            KrakenBalanceResponse balanceResponse = objectMapper.readValue(response.getBody(), KrakenBalanceResponse.class);
+
+            // Calculate totals
+            balanceResponse.setTotalBalance(balanceResponse.calculateTotalBalance());
+            balanceResponse.setAvailableBalance(balanceResponse.calculateAvailableBalance());
+            balanceResponse.setUnrealizedPnl(balanceResponse.calculateUnrealizedPnl());
+
+            log.info("Successfully fetched balance: Total={}, Available={}",
+                    balanceResponse.getTotalBalance(), balanceResponse.getAvailableBalance());
+
+            return balanceResponse;
+
+        } catch (Exception e) {
+            log.error("Error fetching Kraken balance: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch account balance", e);
+        }
+    }
+
+    /**
+     * Place an order
+     */
+    public KrakenOrderResponse placeOrder(KrakenOrderRequest orderRequest, String apiKey, String apiSecret) {
+        String path = API_VERSION + "/sendorder";
+        String url = getBaseUrl() + path;
+
+        try {
+            log.info("Placing Kraken order: symbol={}, side={}, qty={}",
+                    orderRequest.getSymbol(), orderRequest.getSide(), orderRequest.getOrderQty());
+
+            // Prepare order parameters
+            String postData = orderRequest.toKrakenFormat();
+
+            // Generate authentication
+            String nonce = authenticator.generateNonce();
+            String authent = authenticator.generateAuthent(apiSecret, path, nonce, postData);
+
+            // Create headers
+            HttpHeaders headers = createHeaders(apiKey, authent, nonce);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            // Parse response
+            KrakenOrderResponse orderResponse = objectMapper.readValue(response.getBody(), KrakenOrderResponse.class);
+
+            if (orderResponse.isSuccess()) {
+                log.info("Order placed successfully: orderId={}", orderResponse.getOrderId());
+            } else {
+                log.error("Order failed: {}", orderResponse.getError());
+            }
+
+            return orderResponse;
+
+        } catch (Exception e) {
+            log.error("Error placing Kraken order: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to place order", e);
+        }
+    }
+
+    /**
+     * Get open positions
+     */
+    public KrakenPositionsResponse getOpenPositions(String apiKey, String apiSecret) {
+        String path = API_VERSION + "/openpositions";
+        String url = getBaseUrl() + path;
+
+        try {
+            log.info("Fetching Kraken open positions");
+
+            // Generate authentication
+            String nonce = authenticator.generateNonce();
+            String authent = authenticator.generateAuthent(apiSecret, path, nonce, "");
+
+            // Create headers
+            HttpHeaders headers = createHeaders(apiKey, authent, nonce);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            // Parse response
+            KrakenPositionsResponse positionsResponse = objectMapper.readValue(response.getBody(), KrakenPositionsResponse.class);
+
+            log.info("Found {} open positions",
+                    positionsResponse.getOpenPositions() != null ? positionsResponse.getOpenPositions().size() : 0);
+
+            return positionsResponse;
+
+        } catch (Exception e) {
+            log.error("Error fetching Kraken positions: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch open positions", e);
+        }
+    }
+
+    /**
+     * Cancel all orders
+     */
+    public Map<String, Object> cancelAllOrders(String apiKey, String apiSecret, String symbol) {
+        String path = API_VERSION + "/cancelallorders";
+        String url = getBaseUrl() + path;
+
+        try {
+            log.info("Cancelling all Kraken orders for symbol: {}", symbol);
+
+            // Prepare parameters
+            String postData = symbol != null ? "symbol=" + symbol : "";
+
+            // Generate authentication
+            String nonce = authenticator.generateNonce();
+            String authent = authenticator.generateAuthent(apiSecret, path, nonce, postData);
+
+            // Create headers
+            HttpHeaders headers = createHeaders(apiKey, authent, nonce);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            // Parse response
+            Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
+
+            log.info("Cancel all orders result: {}", result);
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("Error cancelling Kraken orders: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to cancel orders", e);
+        }
+    }
+
+    /**
+     * Close all positions
+     */
+    public Map<String, Object> closeAllPositions(String apiKey, String apiSecret) {
+        try {
+            log.info("Closing all Kraken positions");
+
+            // First get all open positions
+            KrakenPositionsResponse positions = getOpenPositions(apiKey, apiSecret);
+
+            Map<String, Object> results = new HashMap<>();
+            int closedCount = 0;
+
+            if (positions.getOpenPositions() != null && !positions.getOpenPositions().isEmpty()) {
+                for (KrakenPositionsResponse.Position position : positions.getOpenPositions()) {
+                    try {
+                        // Create a closing order (opposite side)
+                        KrakenOrderRequest closeOrder = KrakenOrderRequest.builder()
+                                .symbol(position.getSymbol())
+                                .side(position.getSide().equalsIgnoreCase("long") ? "sell" : "buy")
+                                .orderQty(position.getSize())
+                                .orderType("mkt")
+                                .reduceOnly(true)
+                                .build();
+
+                        KrakenOrderResponse closeResponse = placeOrder(closeOrder, apiKey, apiSecret);
+
+                        if (closeResponse.isSuccess()) {
+                            closedCount++;
+                            results.put(position.getSymbol(), "closed");
+                        } else {
+                            results.put(position.getSymbol(), "failed: " + closeResponse.getError());
+                        }
+
+                    } catch (Exception e) {
+                        log.error("Error closing position {}: {}", position.getSymbol(), e.getMessage());
+                        results.put(position.getSymbol(), "error: " + e.getMessage());
+                    }
+                }
+            }
+
+            results.put("totalClosed", closedCount);
+            results.put("totalPositions", positions.getOpenPositions() != null ? positions.getOpenPositions().size() : 0);
+
+            log.info("Closed {} positions", closedCount);
+
+            return results;
+
+        } catch (Exception e) {
+            log.error("Error closing all positions: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to close all positions", e);
+        }
+    }
+
+    /**
+     * Create stop loss order
+     */
+    public KrakenOrderResponse createStopLossOrder(String symbol, BigDecimal size, BigDecimal stopPrice,
+                                                  String apiKey, String apiSecret) {
+        try {
+            log.info("Creating stop loss order: symbol={}, size={}, stopPrice={}", symbol, size, stopPrice);
+
+            KrakenOrderRequest stopOrder = KrakenOrderRequest.builder()
+                    .symbol(symbol)
+                    .side("sell")  // Assuming stop loss for long position
+                    .orderQty(size)
+                    .orderType("stp")  // Stop market order
+                    .stopPrice(stopPrice)
+                    .reduceOnly(true)
+                    .build();
+
+            return placeOrder(stopOrder, apiKey, apiSecret);
+
+        } catch (Exception e) {
+            log.error("Error creating stop loss order: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to create stop loss order", e);
+        }
+    }
+
+    /**
+     * Create HTTP headers for Kraken API
+     */
+    private HttpHeaders createHeaders(String apiKey, String authent, String nonce) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("APIKey", apiKey);
+        headers.set("Authent", authent);
+        headers.set("Nonce", nonce);
+        headers.set("User-Agent", "KrakenService/1.0");
+        return headers;
+    }
+
+    /**
+     * Test API connection
+     */
+    public boolean testConnection(String apiKey, String apiSecret) {
+        try {
+            KrakenBalanceResponse balance = getAccountBalance(apiKey, apiSecret);
+            return balance != null && balance.isSuccess();
+        } catch (Exception e) {
+            log.error("Connection test failed: {}", e.getMessage());
+            return false;
+        }
+    }
+}

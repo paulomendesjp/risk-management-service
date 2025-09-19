@@ -1,6 +1,6 @@
 package com.interview.challenge.notification.template;
 
-import com.interview.challenge.shared.enums.NotificationEventType;
+import com.interview.challenge.shared.event.NotificationType;
 import com.interview.challenge.shared.enums.NotificationPriority;
 import com.interview.challenge.shared.event.NotificationEvent;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ public class NotificationTemplateService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final NumberFormat CURRENCY_FORMATTER = NumberFormat.getCurrencyInstance(Locale.US);
 
-    private final Map<NotificationEventType, NotificationTemplate> templates;
+    private final Map<NotificationType, NotificationTemplate> templates;
 
     public NotificationTemplateService() {
         this.templates = initializeTemplates();
@@ -33,7 +33,7 @@ public class NotificationTemplateService {
      * Get formatted message for notification event
      */
     public String getFormattedMessage(NotificationEvent event) {
-        NotificationEventType eventType = event.getEventType();
+        NotificationType eventType = event.getEventType();
         NotificationTemplate template = templates.get(eventType);
 
         if (template == null) {
@@ -47,7 +47,7 @@ public class NotificationTemplateService {
      * Get email subject for notification event
      */
     public String getEmailSubject(NotificationEvent event) {
-        NotificationEventType eventType = event.getEventType();
+        NotificationType eventType = event.getEventType();
         NotificationTemplate template = templates.get(eventType);
 
         if (template == null) {
@@ -61,7 +61,7 @@ public class NotificationTemplateService {
      * Get slack message for notification event
      */
     public String getSlackMessage(NotificationEvent event) {
-        NotificationEventType eventType = event.getEventType();
+        NotificationType eventType = event.getEventType();
         NotificationTemplate template = templates.get(eventType);
 
         if (template == null) {
@@ -71,16 +71,16 @@ public class NotificationTemplateService {
         return template.formatSlack(event);
     }
 
-    private Map<NotificationEventType, NotificationTemplate> initializeTemplates() {
-        Map<NotificationEventType, NotificationTemplate> templates = new HashMap<>();
+    private Map<NotificationType, NotificationTemplate> initializeTemplates() {
+        Map<NotificationType, NotificationTemplate> templates = new HashMap<>();
 
-        templates.put(NotificationEventType.MAX_RISK_TRIGGERED, new MaxRiskTemplate());
-        templates.put(NotificationEventType.DAILY_RISK_TRIGGERED, new DailyRiskTemplate());
-        templates.put(NotificationEventType.BALANCE_UPDATE, new BalanceUpdateTemplate());
-        templates.put(NotificationEventType.POSITION_CLOSED, new PositionClosedTemplate());
-        templates.put(NotificationEventType.ACCOUNT_BLOCKED, new AccountBlockedTemplate());
-        templates.put(NotificationEventType.MONITORING_ERROR, new MonitoringErrorTemplate());
-        templates.put(NotificationEventType.SYSTEM_EVENT, new SystemEventTemplate());
+        templates.put(NotificationType.MAX_RISK_TRIGGERED, new MaxRiskTemplate());
+        templates.put(NotificationType.DAILY_RISK_TRIGGERED, new DailyRiskTemplate());
+        templates.put(NotificationType.BALANCE_UPDATE, new BalanceUpdateTemplate());
+        templates.put(NotificationType.POSITION_CLOSED, new PositionClosedTemplate());
+        templates.put(NotificationType.ACCOUNT_BLOCKED, new AccountBlockedTemplate());
+        templates.put(NotificationType.MONITORING_ERROR, new MonitoringErrorTemplate());
+        templates.put(NotificationType.SYSTEM_EVENT, new SystemEventTemplate());
 
         return templates;
     }

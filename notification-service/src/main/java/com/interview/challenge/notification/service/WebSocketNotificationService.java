@@ -1,7 +1,7 @@
 package com.interview.challenge.notification.service;
 
 import com.interview.challenge.shared.event.NotificationEvent;
-import com.interview.challenge.shared.enums.NotificationEventType;
+import com.interview.challenge.shared.event.NotificationType;
 import com.interview.challenge.shared.enums.NotificationPriority;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -144,7 +144,7 @@ public class WebSocketNotificationService {
     /**
      * Get icon for event type
      */
-    private String getIconForEventType(NotificationEventType eventType) {
+    private String getIconForEventType(NotificationType eventType) {
         switch (eventType) {
             case MAX_RISK_TRIGGERED:
                 return "error";
@@ -202,9 +202,9 @@ public class WebSocketNotificationService {
     /**
      * Check if event is risk-related
      */
-    private boolean isRiskEvent(NotificationEventType eventType) {
-        return eventType == NotificationEventType.MAX_RISK_TRIGGERED ||
-               eventType == NotificationEventType.DAILY_RISK_TRIGGERED ||
-               eventType == NotificationEventType.MONITORING_ERROR;
+    private boolean isRiskEvent(NotificationType eventType) {
+        return eventType == NotificationType.MAX_RISK_TRIGGERED ||
+               eventType == NotificationType.DAILY_RISK_TRIGGERED ||
+               eventType == NotificationType.MONITORING_ERROR;
     }
 }

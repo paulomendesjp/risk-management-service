@@ -67,6 +67,12 @@
             <version>0.11.5</version>
         </dependency>
 
+        <!-- RabbitMQ for Message Queue -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
         <!-- Lombok for Boilerplate Code -->
         <dependency>
             <groupId>org.projectlombok</groupId>
