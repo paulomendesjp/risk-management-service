@@ -23,7 +23,7 @@ public interface PositionServiceClient {
     @PostMapping("/api/positions/{clientId}/close-all")
     ClosePositionsResult closeAllPositions(
         @PathVariable("clientId") String clientId,
-        @RequestParam("reason") String reason
+        @RequestParam("riskType") String riskType
     );
     
     /**
