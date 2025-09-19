@@ -88,8 +88,8 @@ public class RiskActionExecutor {
         String clientId = monitoring.getClientId();
         logger.error("🚨 EXECUTING MAX RISK ACTIONS for client {}", clientId);
 
-        // Close all positions (use ABSOLUTE for max risk)
-        ClosePositionsResult closeResult = closeAllPositions(clientId, "ABSOLUTE");
+        // Close all positions (use MAX_RISK for max risk)
+        ClosePositionsResult closeResult = closeAllPositions(clientId, "MAX_RISK");
         logPositionClosureResult(clientId, closeResult, "MAX RISK");
 
         // Block account permanently
@@ -119,8 +119,8 @@ public class RiskActionExecutor {
         String clientId = monitoring.getClientId();
         logger.warn("⚠️ EXECUTING DAILY RISK ACTIONS for client {}", clientId);
 
-        // Close all positions (use PERCENTAGE for daily risk)
-        ClosePositionsResult closeResult = closeAllPositions(clientId, "PERCENTAGE");
+        // Close all positions (use DAILY_RISK for daily risk)
+        ClosePositionsResult closeResult = closeAllPositions(clientId, "DAILY_RISK");
         logPositionClosureResult(clientId, closeResult, "DAILY RISK");
 
         // Block account for the day
