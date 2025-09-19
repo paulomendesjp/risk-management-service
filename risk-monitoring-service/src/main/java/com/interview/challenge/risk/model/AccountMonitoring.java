@@ -57,6 +57,7 @@ public class AccountMonitoring {
         this.clientId = clientId;
         this.initialBalance = initialBalance;
         this.currentBalance = initialBalance;
+        this.dailyStartBalance = initialBalance; // Initialize daily start balance
     }
     
     // Getters and Setters

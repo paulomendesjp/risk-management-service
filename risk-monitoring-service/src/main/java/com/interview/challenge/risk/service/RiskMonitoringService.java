@@ -239,8 +239,11 @@ public class RiskMonitoringService {
             
             // Check Daily Risk Limit (only if max risk not violated)
             if (!result.isMaxRiskViolated() && config.getDailyRisk() != null) {
+                BigDecimal dailyBaseAmount = monitoring.getDailyStartBalance() != null
+                    ? monitoring.getDailyStartBalance()
+                    : monitoring.getInitialBalance();
                 BigDecimal dailyRiskThreshold = calculateRiskThreshold(
-                    config.getDailyRisk(), monitoring.getDailyStartBalance());
+                    config.getDailyRisk(), dailyBaseAmount);
                 
                 if (riskCalculator.isRiskLimitExceeded(dailyLoss, dailyRiskThreshold)) {
                     result.setDailyRiskViolated(true);
@@ -260,8 +263,11 @@ public class RiskMonitoringService {
                 // Check warning thresholds (80% of limits)
                 boolean nearMaxRisk = config.getMaxRisk() != null &&
                     riskCalculator.isNearRiskLimit(currentLoss, calculateRiskThreshold(config.getMaxRisk(), monitoring.getInitialBalance()));
+                BigDecimal dailyBaseAmount = monitoring.getDailyStartBalance() != null
+                    ? monitoring.getDailyStartBalance()
+                    : monitoring.getInitialBalance();
                 boolean nearDailyRisk = config.getDailyRisk() != null &&
-                    riskCalculator.isNearRiskLimit(dailyLoss, calculateRiskThreshold(config.getDailyRisk(), monitoring.getDailyStartBalance()));
+                    riskCalculator.isNearRiskLimit(dailyLoss, calculateRiskThreshold(config.getDailyRisk(), dailyBaseAmount));
                 
                 if (nearMaxRisk || nearDailyRisk) {
                     monitoring.setRiskStatus(RiskStatus.MONITORING_ERROR);
@@ -819,7 +825,12 @@ public class RiskMonitoringService {
             
             // Calculate risk limits based on initial balance
             BigDecimal maxRiskLimit = calculateRiskThreshold(clientConfig.getMaxRisk(), monitoring.getInitialBalance());
-            BigDecimal dailyRiskLimit = calculateRiskThreshold(clientConfig.getDailyRisk(), monitoring.getDailyStartBalance());
+
+            // Fix: Use initial balance if daily start balance is null
+            BigDecimal dailyBaseAmount = monitoring.getDailyStartBalance() != null
+                ? monitoring.getDailyStartBalance()
+                : monitoring.getInitialBalance();
+            BigDecimal dailyRiskLimit = calculateRiskThreshold(clientConfig.getDailyRisk(), dailyBaseAmount);
             
             BigDecimal currentLoss = monitoring.getCurrentLoss();
             BigDecimal dailyLoss = monitoring.getDailyLoss();
