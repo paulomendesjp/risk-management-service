@@ -444,6 +444,129 @@ async def websocket_balance_stream(websocket: WebSocket, api_key: str, api_secre
         except:
             pass
 
+@app.get("/orders/list")
+async def get_open_orders(
+        api_key: Optional[str] = Header(None, alias="api-key"),
+        api_secret: Optional[str] = Header(None, alias="api-secret"),
+        x_api_key: Optional[str] = Header(None, alias="X-API-KEY"),
+        x_api_secret: Optional[str] = Header(None, alias="X-API-SECRET")
+):
+    """Get list of open orders"""
+    request_id = generate_request_id()
+
+    # Use X-API-KEY/X-API-SECRET headers if available, otherwise fall back to api-key/api-secret
+    final_api_key = x_api_key or api_key
+    final_api_secret = x_api_secret or api_secret
+
+    if not final_api_key or not final_api_secret:
+        raise HTTPException(status_code=400, detail="API credentials required")
+
+    try:
+        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        orders = await client.get_orders()
+        await client.close()
+
+        # Convert to list format expected by Java service
+        order_list = []
+        for order in orders:
+            order_dict = {
+                "id": order.id if hasattr(order, 'id') else None,
+                "symbol": order.symbol if hasattr(order, 'symbol') else None,
+                "side": order.dir.value if hasattr(order, 'dir') else None,
+                "quantity": float(order.quantity) if hasattr(order, 'quantity') else 0,
+                "price": float(order.limit_price) if hasattr(order, 'limit_price') and order.limit_price else 0,
+                "status": order.status.value if hasattr(order, 'status') else None,
+                "type": order.order_type.value if hasattr(order, 'order_type') else None
+            }
+            order_list.append(order_dict)
+
+        logger.info(f"[{request_id}] Retrieved {len(order_list)} open orders")
+        return order_list
+
+    except Exception as e:
+        logger.error(f"[{request_id}] Error getting orders: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get orders: {str(e)}")
+
+@app.delete("/orders/{order_id}")
+async def cancel_order(
+        order_id: str,
+        api_key: Optional[str] = Header(None, alias="api-key"),
+        api_secret: Optional[str] = Header(None, alias="api-secret"),
+        x_api_key: Optional[str] = Header(None, alias="X-API-KEY"),
+        x_api_secret: Optional[str] = Header(None, alias="X-API-SECRET")
+):
+    """Cancel an order by ID"""
+    request_id = generate_request_id()
+
+    # Use X-API-KEY/X-API-SECRET headers if available
+    final_api_key = x_api_key or api_key
+    final_api_secret = x_api_secret or api_secret
+
+    if not final_api_key or not final_api_secret:
+        raise HTTPException(status_code=400, detail="API credentials required")
+
+    try:
+        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        cancel_result = await client.cancel_order(order_id)
+        await client.close()
+
+        result = {
+            "orderId": order_id,
+            "status": cancel_result.status.value if hasattr(cancel_result, 'status') else "UNKNOWN",
+            "success": True,
+            "message": f"Cancel request sent for order {order_id}"
+        }
+
+        logger.info(f"[{request_id}] Cancel request sent for order {order_id}")
+        audit_logger.info(f"ORDER_CANCEL_REQUEST - Order: {order_id}, Status: {result['status']}")
+        return result
+
+    except Exception as e:
+        logger.error(f"[{request_id}] Error canceling order {order_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cancel order: {str(e)}")
+
+@app.get("/api/v1/positions")
+async def get_positions(
+        api_key: Optional[str] = Header(None, alias="api-key"),
+        api_secret: Optional[str] = Header(None, alias="api-secret"),
+        x_api_key: Optional[str] = Header(None, alias="X-API-KEY"),
+        x_api_secret: Optional[str] = Header(None, alias="X-API-SECRET")
+):
+    """Get current positions"""
+    request_id = generate_request_id()
+
+    # Use X-API-KEY/X-API-SECRET headers if available
+    final_api_key = x_api_key or api_key
+    final_api_secret = x_api_secret or api_secret
+
+    if not final_api_key or not final_api_secret:
+        raise HTTPException(status_code=400, detail="API credentials required")
+
+    try:
+        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        positions = await client.get_positions()
+        await client.close()
+
+        # Convert to list format expected by Java service
+        position_list = []
+        for pos in positions:
+            position_dict = {
+                "symbol": pos.symbol if hasattr(pos, 'symbol') else None,
+                "quantity": float(pos.quantity) if hasattr(pos, 'quantity') else 0,
+                "side": pos.side.value if hasattr(pos, 'side') else None,
+                "unrealizedPnl": float(pos.unrealized_pnl) if hasattr(pos, 'unrealized_pnl') and pos.unrealized_pnl else 0,
+                "avgPrice": float(pos.avg_price) if hasattr(pos, 'avg_price') and pos.avg_price else 0,
+                "marketValue": float(pos.market_value) if hasattr(pos, 'market_value') and pos.market_value else 0
+            }
+            position_list.append(position_dict)
+
+        logger.info(f"[{request_id}] Retrieved {len(position_list)} positions")
+        return position_list
+
+    except Exception as e:
+        logger.error(f"[{request_id}] Error getting positions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get positions: {str(e)}")
+
 @app.websocket("/ws/realtime")
 async def websocket_realtime_stream(websocket: WebSocket, api_key: str, api_secret: str):
     """
