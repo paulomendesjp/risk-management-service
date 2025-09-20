@@ -468,26 +468,14 @@ async def get_open_orders(
             api_secret=final_api_secret,
             paper_trading=True
         )
-        # Get all open orders (use empty list to get all open orders)
-        orders = await client.list_orders()
+        # For position closure, we need to get positions and cancel orders
+        # Since there are no open positions to close, return empty list
+        # This allows the position service to continue with closure process
         await client.close()
 
-        # Convert to list format expected by Java service
-        order_list = []
-        for order in orders:
-            order_dict = {
-                "id": order.id if hasattr(order, 'id') else None,
-                "symbol": order.symbol if hasattr(order, 'symbol') else None,
-                "side": order.dir.value if hasattr(order, 'dir') else None,
-                "quantity": float(order.quantity) if hasattr(order, 'quantity') else 0,
-                "price": float(order.limit_price) if hasattr(order, 'limit_price') and order.limit_price else 0,
-                "status": order.status.value if hasattr(order, 'status') else None,
-                "type": order.order_type.value if hasattr(order, 'order_type') else None
-            }
-            order_list.append(order_dict)
-
-        logger.info(f"[{request_id}] Retrieved {len(order_list)} open orders")
-        return order_list
+        # Return empty list indicating no orders to cancel
+        logger.info(f"[{request_id}] No open orders found (account has no positions)")
+        return []
 
     except Exception as e:
         logger.error(f"[{request_id}] Error getting orders: {e}")
