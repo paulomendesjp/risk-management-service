@@ -84,7 +84,7 @@ public class RabbitMQConfig {
         return template;
     }
 
-    // User registration queues
+    // User registration queues - Simple configuration matching Risk-Monitoring-Service
     @Bean
     public Queue userRegistrationsQueue() {
         return new Queue("user.registrations", true);
@@ -95,31 +95,8 @@ public class RabbitMQConfig {
         return new Queue("user.updates", true);
     }
 
-    // Direct exchanges matching User-Service configuration
     @Bean
-    public DirectExchange userRegistrationsExchange() {
-        return new DirectExchange("user.registrations", true, false);
-    }
-
-    @Bean
-    public DirectExchange userUpdatesExchange() {
-        return new DirectExchange("user.updates", true, false);
-    }
-
-    // Explicit bindings with empty routing key (matching User-Service behavior)
-    @Bean
-    public Binding userRegistrationsBinding() {
-        return BindingBuilder
-            .bind(userRegistrationsQueue())
-            .to(userRegistrationsExchange())
-            .with(""); // Empty routing key
-    }
-
-    @Bean
-    public Binding userUpdatesBinding() {
-        return BindingBuilder
-            .bind(userUpdatesQueue())
-            .to(userUpdatesExchange())
-            .with(""); // Empty routing key
+    public Queue userDeletionsQueue() {
+        return new Queue("user.deletions", true);
     }
 }

@@ -15,13 +15,21 @@ spring:
       uri: ${MONGO_URI:mongodb://localhost:27017/kraken_trading}
       auto-index-creation: true
 
-  # RabbitMQ Configuration
+  # RabbitMQ Configuration - Matching User-Service
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-    virtual-host: ${RABBITMQ_VHOST:/}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:password123}
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+          max-interval: 10000
+        default-requeue-rejected: false
+        acknowledge-mode: auto
 
   # Jackson Configuration
   jackson:
