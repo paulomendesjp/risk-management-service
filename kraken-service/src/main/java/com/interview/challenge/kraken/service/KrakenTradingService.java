@@ -52,6 +52,9 @@ public class KrakenTradingService {
     @Autowired
     private KrakenAuthenticator krakenAuthenticator;
 
+    @Autowired
+    private KrakenCredentialManager credentialManager;
+
     @Value("${kraken.trading.max-retry:3}")
     private int maxRetry;
 
@@ -68,8 +71,13 @@ public class KrakenTradingService {
             log.info("Processing webhook order for client: {}, strategy: {}",
                     orderRequest.getClientId(), orderRequest.getStrategy());
 
-            // Validate credentials first
-            if (!krakenAuthenticator.validateCredentials(apiKey, apiSecret)) {
+            // Get decrypted credentials from database
+            Map<String, String> credentials = getDecryptedCredentials(orderRequest.getClientId());
+            String decryptedApiKey = credentials.get("apiKey");
+            String decryptedApiSecret = credentials.get("apiSecret");
+
+            // Validate credentials
+            if (!krakenAuthenticator.validateCredentials(decryptedApiKey, decryptedApiSecret)) {
                 log.error("❌ Invalid Kraken API credentials for client: {}", orderRequest.getClientId());
                 throw new IllegalArgumentException("Invalid Kraken API credentials");
             }
@@ -103,11 +111,11 @@ public class KrakenTradingService {
             // Check inverse logic if enabled
             if (orderRequest.getInverse() != null && orderRequest.getInverse()) {
                 // Close existing position first
-                closePositionForInverse(orderRequest.getSymbol(), apiKey, apiSecret);
+                closePositionForInverse(orderRequest.getSymbol(), decryptedApiKey, decryptedApiSecret);
             }
 
             // Place the main order
-            KrakenOrderResponse orderResponse = krakenApiClient.placeOrder(orderRequest, apiKey, apiSecret);
+            KrakenOrderResponse orderResponse = krakenApiClient.placeOrder(orderRequest, decryptedApiKey, decryptedApiSecret);
 
             if (!orderResponse.isSuccess()) {
                 throw new KrakenApiException("Order failed: " + orderResponse.getError());
@@ -182,17 +190,22 @@ public class KrakenTradingService {
         try {
             log.info("Closing all positions for client: {}", clientId);
 
-            // Validate credentials first
-            if (!krakenAuthenticator.validateCredentials(apiKey, apiSecret)) {
+            // Get decrypted credentials from database
+            Map<String, String> credentials = getDecryptedCredentials(clientId);
+            String decryptedApiKey = credentials.get("apiKey");
+            String decryptedApiSecret = credentials.get("apiSecret");
+
+            // Validate credentials
+            if (!krakenAuthenticator.validateCredentials(decryptedApiKey, decryptedApiSecret)) {
                 log.error("❌ Invalid Kraken API credentials for client: {}", clientId);
                 throw new IllegalArgumentException("Invalid Kraken API credentials");
             }
 
             // Cancel all open orders first
-            krakenApiClient.cancelAllOrders(apiKey, apiSecret, null);
+            krakenApiClient.cancelAllOrders(decryptedApiKey, decryptedApiSecret, null);
 
             // Close all positions
-            Map<String, Object> result = krakenApiClient.closeAllPositions(apiKey, apiSecret);
+            Map<String, Object> result = krakenApiClient.closeAllPositions(decryptedApiKey, decryptedApiSecret);
 
             // Update tracking
             orderTrackingRepository.markAllClosedForClient(clientId);
@@ -326,6 +339,29 @@ public class KrakenTradingService {
         } catch (Exception e) {
             log.error("Error updating risk limits: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Get decrypted credentials for a client from database
+     */
+    private Map<String, String> getDecryptedCredentials(String clientId) {
+        Optional<KrakenAccountMonitoring> accountOpt = accountMonitoringRepository.findByClientId(clientId);
+        
+        if (accountOpt.isEmpty()) {
+            throw new IllegalArgumentException("No monitoring account found for client: " + clientId);
+        }
+        
+        KrakenAccountMonitoring account = accountOpt.get();
+        
+        // Decrypt credentials
+        String decryptedApiKey = credentialManager.decryptCredential(account.getApiKey());
+        String decryptedApiSecret = credentialManager.decryptCredential(account.getApiSecret());
+        
+        Map<String, String> credentials = new HashMap<>();
+        credentials.put("apiKey", decryptedApiKey);
+        credentials.put("apiSecret", decryptedApiSecret);
+        
+        return credentials;
     }
 
     /**
