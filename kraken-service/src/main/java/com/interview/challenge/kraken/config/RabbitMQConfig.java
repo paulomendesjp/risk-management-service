@@ -97,49 +97,19 @@ public class RabbitMQConfig {
         return factory;
     }
 
-    // User registration configuration
-    @Bean
-    public FanoutExchange userRegistrationsExchange() {
-        return new FanoutExchange("user.registrations");
-    }
-
-    @Bean
-    public FanoutExchange userUpdatesExchange() {
-        return new FanoutExchange("user.updates");
-    }
-
-    @Bean
-    public FanoutExchange userDeletionsExchange() {
-        return new FanoutExchange("user.deletions");
-    }
-
+    // User registration queues - same as User-Service and Risk-Monitoring
     @Bean
     public Queue userRegistrationsQueue() {
-        return new Queue("kraken.user.registrations", true);
+        return new Queue("user.registrations", true);
     }
 
     @Bean
     public Queue userUpdatesQueue() {
-        return new Queue("kraken.user.updates", true);
+        return new Queue("user.updates", true);
     }
 
     @Bean
     public Queue userDeletionsQueue() {
-        return new Queue("kraken.user.deletions", true);
-    }
-
-    @Bean
-    public Binding userRegistrationsBinding(Queue userRegistrationsQueue, FanoutExchange userRegistrationsExchange) {
-        return BindingBuilder.bind(userRegistrationsQueue).to(userRegistrationsExchange);
-    }
-
-    @Bean
-    public Binding userUpdatesBinding(Queue userUpdatesQueue, FanoutExchange userUpdatesExchange) {
-        return BindingBuilder.bind(userUpdatesQueue).to(userUpdatesExchange);
-    }
-
-    @Bean
-    public Binding userDeletionsBinding(Queue userDeletionsQueue, FanoutExchange userDeletionsExchange) {
-        return BindingBuilder.bind(userDeletionsQueue).to(userDeletionsExchange);
+        return new Queue("user.deletions", true);
     }
 }
