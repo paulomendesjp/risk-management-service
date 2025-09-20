@@ -8,7 +8,6 @@ import com.interview.challenge.shared.model.ClientConfiguration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -33,11 +32,18 @@ public class UserRegistrationListener {
      * Inicia monitoramento se exchange = KRAKEN
      */
     @RabbitListener(queues = "kraken.user.registrations")
-    @Async
     public void handleUserRegistration(UserRegistrationEvent event) {
         log.info("🎯 RECEIVED USER REGISTRATION EVENT: {}", event);
+
+        if (event == null) {
+            log.error("❌ Received null event!");
+            return;
+        }
+
         String clientId = event.getClientId();
-        log.info("🆔 Processing registration for clientId: {}", clientId);
+        String eventExchange = event.getExchange();
+
+        log.info("🆔 Processing registration for clientId: {}, exchange from event: {}", clientId, eventExchange);
 
         try {
             // Buscar configuração completa do usuário para verificar o exchange
