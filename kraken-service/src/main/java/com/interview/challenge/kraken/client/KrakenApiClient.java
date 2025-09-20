@@ -10,10 +10,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -55,8 +53,15 @@ public class KrakenApiClient {
     /**
      * Get the appropriate base URL (demo or production)
      */
-    private String getBaseUrl() {
+    private String getApiBaseUrl() {
         return useDemo ? demoUrl : baseUrl;
+    }
+
+    /**
+     * Get the base URL for external access
+     */
+    public String getBaseUrl() {
+        return getApiBaseUrl();
     }
 
     /**
@@ -64,7 +69,7 @@ public class KrakenApiClient {
      */
     public KrakenBalanceResponse getAccountBalance(String apiKey, String apiSecret) {
         String path = API_VERSION + "/accounts";
-        String url = getBaseUrl() + path;
+        String url = getApiBaseUrl() + path;
 
         try {
             log.info("Fetching Kraken account balance");
@@ -104,7 +109,7 @@ public class KrakenApiClient {
      */
     public KrakenOrderResponse placeOrder(KrakenOrderRequest orderRequest, String apiKey, String apiSecret) {
         String path = API_VERSION + "/sendorder";
-        String url = getBaseUrl() + path;
+        String url = getApiBaseUrl() + path;
 
         try {
             log.info("Placing Kraken order: symbol={}, side={}, qty={}",
@@ -147,7 +152,7 @@ public class KrakenApiClient {
      */
     public KrakenPositionsResponse getOpenPositions(String apiKey, String apiSecret) {
         String path = API_VERSION + "/openpositions";
-        String url = getBaseUrl() + path;
+        String url = getApiBaseUrl() + path;
 
         try {
             log.info("Fetching Kraken open positions");
@@ -182,7 +187,7 @@ public class KrakenApiClient {
      */
     public Map<String, Object> cancelAllOrders(String apiKey, String apiSecret, String symbol) {
         String path = API_VERSION + "/cancelallorders";
-        String url = getBaseUrl() + path;
+        String url = getApiBaseUrl() + path;
 
         try {
             log.info("Cancelling all Kraken orders for symbol: {}", symbol);
@@ -316,6 +321,31 @@ public class KrakenApiClient {
         } catch (Exception e) {
             log.error("Connection test failed: {}", e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Test public endpoint (no authentication required)
+     */
+    public String testPublicEndpoint() {
+        String path = API_VERSION + "/instruments";
+        String url = getApiBaseUrl() + path;
+
+        try {
+            log.info("Testing Kraken public endpoint: {}", url);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "KrakenService/1.0");
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+
+            log.info("Public endpoint test successful");
+            return response.getBody();
+
+        } catch (Exception e) {
+            log.error("Public endpoint test failed: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to test public endpoint", e);
         }
     }
 }

@@ -3,7 +3,9 @@ package com.interview.challenge.kraken.controller;
 import com.interview.challenge.kraken.dto.KrakenBalanceResponse;
 import com.interview.challenge.kraken.dto.KrakenOrderRequest;
 import com.interview.challenge.kraken.dto.KrakenPositionsResponse;
+import com.interview.challenge.kraken.dto.KrakenUserRegistrationRequest;
 import com.interview.challenge.kraken.service.KrakenTradingService;
+import com.interview.challenge.kraken.service.KrakenMonitoringService;
 import com.interview.challenge.kraken.client.KrakenApiClient;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,6 +40,74 @@ public class KrakenTradingController {
 
     @Autowired
     private KrakenApiClient krakenApiClient;
+    
+    @Autowired
+    private KrakenMonitoringService monitoringService;
+
+    /**
+     * Register a new Kraken user
+     */
+    @PostMapping("/users/register")
+    @Operation(summary = "Register Kraken User", description = "Register a new user with Kraken API credentials and start monitoring")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User registered successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or credentials"),
+            @ApiResponse(responseCode = "409", description = "User already exists"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Map<String, Object>> registerUser(
+            @Valid @RequestBody KrakenUserRegistrationRequest request) {
+
+        log.info("Registering new Kraken user: {}", request.getClientId());
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            // Validate credentials first
+            boolean credentialsValid = krakenApiClient.testConnection(request.getApiKey(), request.getApiSecret());
+            if (!credentialsValid) {
+                response.put("success", false);
+                response.put("error", "INVALID_CREDENTIALS");
+                response.put("message", "Invalid Kraken API credentials");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+
+            // Check if user already exists
+            if (monitoringService.isMonitoring(request.getClientId())) {
+                response.put("success", false);
+                response.put("error", "USER_EXISTS");
+                response.put("message", "User already registered");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+            }
+
+            // Start monitoring
+            monitoringService.startMonitoring(
+                request.getClientId(),
+                request.getApiKey(),
+                request.getApiSecret(),
+                request.getInitialBalance(),
+                request.getDailyRisk(),
+                request.getMaxRisk()
+            );
+
+            response.put("success", true);
+            response.put("clientId", request.getClientId());
+            response.put("message", "User registered and monitoring started successfully");
+            response.put("initialBalance", request.getInitialBalance());
+
+            log.info("✅ Successfully registered Kraken user: {}", request.getClientId());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Error registering user {}: {}", request.getClientId(), e.getMessage(), e);
+
+            response.put("success", false);
+            response.put("error", "REGISTRATION_ERROR");
+            response.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 
     /**
      * Process webhook order from TradingView
@@ -236,6 +306,7 @@ public class KrakenTradingController {
 
             response.put("connected", connected);
             response.put("message", connected ? "Connection successful" : "Connection failed");
+            response.put("environment", krakenApiClient.getBaseUrl());
 
             return ResponseEntity.ok(response);
 
@@ -244,6 +315,40 @@ public class KrakenTradingController {
 
             response.put("connected", false);
             response.put("error", e.getMessage());
+            response.put("environment", krakenApiClient.getBaseUrl());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
+    /**
+     * Test API connection without authentication (public endpoints)
+     */
+    @GetMapping("/test-public")
+    @Operation(summary = "Test Public Connection", description = "Test Kraken API public endpoints")
+    public ResponseEntity<Map<String, Object>> testPublicConnection() {
+
+        log.info("Testing Kraken API public connection");
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            // Test public endpoint - get server time or instruments
+            String result = krakenApiClient.testPublicEndpoint();
+
+            response.put("connected", true);
+            response.put("message", "Public API connection successful");
+            response.put("environment", krakenApiClient.getBaseUrl());
+            response.put("serverResponse", result);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Public connection test failed: {}", e.getMessage());
+
+            response.put("connected", false);
+            response.put("error", e.getMessage());
+            response.put("environment", krakenApiClient.getBaseUrl());
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }

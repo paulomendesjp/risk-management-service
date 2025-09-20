@@ -31,7 +31,14 @@ public class KrakenOrderRequest {
     private String symbol; // e.g., "PI_ETHUSD", "PI_XBTUSD"
 
     @NotBlank(message = "Side is required")
+    @JsonProperty("side")
     private String side; // "buy" or "sell"
+    
+    // Support legacy "action" field for backward compatibility
+    @JsonProperty("action")
+    public void setAction(String action) {
+        this.side = action;
+    }
 
     @NotNull(message = "Order quantity is required")
     @Positive(message = "Order quantity must be positive")
@@ -46,6 +53,14 @@ public class KrakenOrderRequest {
 
     @JsonProperty("stopLoss")
     private BigDecimal stopLossPercentage; // Stop loss in percentage
+    
+    // Support legacy field names with % suffix
+    @JsonProperty("stopLoss%")
+    public void setStopLossPercent(String stopLossPercent) {
+        if (stopLossPercent != null) {
+            this.stopLossPercentage = new BigDecimal(stopLossPercent);
+        }
+    }
 
     @JsonProperty("takeProfit")
     private BigDecimal takeProfitPercentage; // Take profit in percentage
@@ -61,6 +76,14 @@ public class KrakenOrderRequest {
     // Risk management fields
     @JsonProperty("maxriskperday")
     private BigDecimal maxRiskPerDay; // Max risk per day in percentage
+    
+    // Support legacy field names with % suffix
+    @JsonProperty("maxriskperday%")
+    public void setMaxRiskPerDayPercent(String maxRiskPerDayPercent) {
+        if (maxRiskPerDayPercent != null) {
+            this.maxRiskPerDay = new BigDecimal(maxRiskPerDayPercent);
+        }
+    }
 
     @Builder.Default
     private Boolean inverse = false; // Close and reverse position
