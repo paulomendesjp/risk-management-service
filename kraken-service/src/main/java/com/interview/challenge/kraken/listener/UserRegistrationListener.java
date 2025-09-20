@@ -31,7 +31,7 @@ public class UserRegistrationListener {
      * Escuta eventos de registro de usuário
      * Inicia monitoramento se exchange = KRAKEN
      */
-    @RabbitListener(queues = "kraken.user.registrations")
+    @RabbitListener(queues = "user.registrations")
     public void handleUserRegistration(UserRegistrationEvent event) {
         log.info("🎯 RECEIVED USER REGISTRATION EVENT: {}", event);
 
@@ -101,7 +101,7 @@ public class UserRegistrationListener {
     /**
      * Escuta eventos de atualização de limites de risco
      */
-    @RabbitListener(queues = "kraken.user.updates")
+    @RabbitListener(queues = "user.updates")
     public void handleUserUpdate(UserRegistrationEvent event) {
         String clientId = event.getClientId();
 
