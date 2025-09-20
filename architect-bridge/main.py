@@ -468,14 +468,43 @@ async def get_open_orders(
             api_secret=final_api_secret,
             paper_trading=True
         )
-        # For position closure, we need to get positions and cancel orders
-        # Since there are no open positions to close, return empty list
-        # This allows the position service to continue with closure process
+        # Get all open orders to cancel them for risk management
+        orders = []
+        try:
+            # Get working orders (pending orders that need to be cancelled)
+            working_orders = await client.get_working_orders()
+            orders = working_orders if working_orders else []
+        except Exception as e:
+            logger.warning(f"[{request_id}] Could not get working orders: {e}")
+            try:
+                # Fallback: try to get account info and orders
+                accounts = await client.list_accounts()
+                if accounts:
+                    # For each account, try to get orders
+                    for account in accounts[:1]:  # Just first account
+                        account_orders = await client.get_orders_for_account(account.id) if hasattr(client, 'get_orders_for_account') else []
+                        orders.extend(account_orders)
+            except Exception as e2:
+                logger.warning(f"[{request_id}] Could not get orders via accounts: {e2}")
+
         await client.close()
 
-        # Return empty list indicating no orders to cancel
-        logger.info(f"[{request_id}] No open orders found (account has no positions)")
-        return []
+        # Convert to list format expected by Java service
+        order_list = []
+        for order in orders:
+            order_dict = {
+                "id": order.id if hasattr(order, 'id') else str(order) if isinstance(order, str) else None,
+                "symbol": order.symbol if hasattr(order, 'symbol') else None,
+                "side": order.dir.value if hasattr(order, 'dir') else (order.side if hasattr(order, 'side') else None),
+                "quantity": float(order.quantity) if hasattr(order, 'quantity') else 0,
+                "price": float(order.limit_price) if hasattr(order, 'limit_price') and order.limit_price else 0,
+                "status": order.status.value if hasattr(order, 'status') else "OPEN",
+                "type": order.order_type.value if hasattr(order, 'order_type') else "LIMIT"
+            }
+            order_list.append(order_dict)
+
+        logger.info(f"[{request_id}] Retrieved {len(order_list)} open orders for cancellation")
+        return order_list
 
     except Exception as e:
         logger.error(f"[{request_id}] Error getting orders: {e}")
