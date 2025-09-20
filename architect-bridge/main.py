@@ -506,12 +506,33 @@ async def get_open_orders(
         except Exception as e:
             logger.warning(f"[{request_id}] Could not get accounts: {e}")
 
-        # The architect-py library seems to require specific order IDs to get orders
-        # For risk management purposes, we'll return empty list since:
-        # 1. The account is already blocked (dailyBlocked: true)
-        # 2. No new trades can be placed
-        # 3. Existing orders will expire or can be manually cancelled
-        logger.info(f"[{request_id}] Risk management completed - account blocked from new trades")
+        # Use cancel_all_orders() to cancel all pending orders for risk management
+        try:
+            # Cancel all orders across all venues
+            venues = ["CME", "US-EQUITIES", "CDE", "CFE"]  # Based on config response
+            total_cancelled = 0
+
+            for venue in venues:
+                try:
+                    cancel_result = await client.cancel_all_orders(execution_venue=venue)
+                    logger.info(f"[{request_id}] Cancelled orders on {venue}: {cancel_result}")
+                    total_cancelled += 1
+                except Exception as venue_error:
+                    logger.warning(f"[{request_id}] Could not cancel orders on {venue}: {venue_error}")
+
+            # Also try without venue specification (cancel ALL orders)
+            try:
+                cancel_all_result = await client.cancel_all_orders()
+                logger.info(f"[{request_id}] Cancelled all orders (no venue filter): {cancel_all_result}")
+                total_cancelled += 1
+            except Exception as cancel_error:
+                logger.warning(f"[{request_id}] Could not cancel all orders: {cancel_error}")
+
+            logger.info(f"[{request_id}] Risk management completed - attempted cancellation on {total_cancelled} venues")
+
+        except Exception as e:
+            logger.error(f"[{request_id}] Error during order cancellation: {e}")
+            logger.info(f"[{request_id}] Risk management completed - account blocked from new trades")
 
         await client.close()
 
