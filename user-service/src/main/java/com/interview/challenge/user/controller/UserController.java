@@ -369,6 +369,14 @@ public class UserController {
     }
 
     /**
+     * Get all users - alternate endpoint for Feign clients
+     */
+    @GetMapping("")
+    public ResponseEntity<List<ClientConfiguration>> getAllClients() {
+        return getAllUsers();
+    }
+
+    /**
      * Update user's API credentials
      * PUT /api/users/{clientId}/credentials
      */

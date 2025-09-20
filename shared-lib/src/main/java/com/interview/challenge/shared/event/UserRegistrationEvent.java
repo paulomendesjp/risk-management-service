@@ -17,6 +17,7 @@ public class UserRegistrationEvent implements Serializable {
 
     private String eventType; // "REGISTRATION", "UPDATE", "DELETION"
     private String clientId;
+    private String exchange; // "KRAKEN", "BINANCE", etc.
     private BigDecimal initialBalance;
     private BigDecimal maxRiskValue;
     private String maxRiskType; // "percentage" or "absolute"
@@ -114,11 +115,20 @@ public class UserRegistrationEvent implements Serializable {
         this.timestamp = timestamp;
     }
 
+    public String getExchange() {
+        return exchange;
+    }
+
+    public void setExchange(String exchange) {
+        this.exchange = exchange;
+    }
+
     @Override
     public String toString() {
         return "UserRegistrationEvent{" +
                 "eventType='" + eventType + '\'' +
                 ", clientId='" + clientId + '\'' +
+                ", exchange='" + exchange + '\'' +
                 ", initialBalance=" + initialBalance +
                 ", timestamp=" + timestamp +
                 '}';

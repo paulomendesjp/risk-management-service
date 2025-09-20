@@ -68,6 +68,9 @@ public class EventPublisher {
             user.getInitialBalance()
         );
 
+        // Include exchange information
+        event.setExchange(user.getExchange());
+
         setRiskLimitsOnEvent(event, user.getMaxRisk(), user.getDailyRisk());
         return event;
     }
@@ -77,6 +80,10 @@ public class EventPublisher {
      */
     private UserRegistrationEvent createUpdateEvent(ClientConfiguration user) {
         UserRegistrationEvent event = UserRegistrationEvent.update(user.getClientId());
+
+        // Include exchange information
+        event.setExchange(user.getExchange());
+
         setRiskLimitsOnEvent(event, user.getMaxRisk(), user.getDailyRisk());
         return event;
     }
