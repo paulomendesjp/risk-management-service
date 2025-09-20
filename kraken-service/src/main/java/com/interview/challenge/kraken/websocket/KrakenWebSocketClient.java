@@ -35,7 +35,7 @@ public class KrakenWebSocketClient extends WebSocketClient {
     private KrakenCredentialManager credentialManager;
 
     @Autowired
-    private com.interview.challenge.kraken.client.KrakenWebSocketTokenService tokenService;
+    private com.interview.challenge.kraken.client.KrakenSpotTokenService tokenService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -71,19 +71,33 @@ public class KrakenWebSocketClient extends WebSocketClient {
             log.debug("📨 WebSocket message received: {}", message);
 
             Map<String, Object> data = objectMapper.readValue(message, Map.class);
-            String channel = (String) data.get("channel");
-            String type = (String) data.get("type");
 
-            if ("status".equals(type)) {
-                handleStatusMessage(data);
-            } else if ("balances".equals(channel)) {
-                handleBalanceUpdate(data);
-            } else if ("openOrders".equals(channel)) {
-                handleOrderUpdate(data);
-            } else if ("ownTrades".equals(channel)) {
-                handleTradeUpdate(data);
-            } else if ("error".equals(type)) {
+            // Spot WebSocket V2 uses different message format
+            String event = (String) data.get("event");
+            String channelName = null;
+
+            // Extract channel name from subscription if present
+            if (data.containsKey("subscription")) {
+                Map<String, Object> subscription = (Map<String, Object>) data.get("subscription");
+                channelName = (String) subscription.get("name");
+            }
+
+            // Handle different event types for Spot WebSocket
+            if ("subscriptionStatus".equals(event)) {
+                handleSubscriptionStatus(data);
+            } else if ("systemStatus".equals(event)) {
+                handleSystemStatus(data);
+            } else if ("error".equals(event)) {
                 handleError(data);
+            } else if (data.containsKey("data")) {
+                // Handle data updates based on channel
+                if ("balances".equals(channelName)) {
+                    handleBalanceUpdate(data);
+                } else if ("openOrders".equals(channelName)) {
+                    handleOrderUpdate(data);
+                } else if ("ownTrades".equals(channelName)) {
+                    handleTradeUpdate(data);
+                }
             }
 
         } catch (Exception e) {
@@ -111,17 +125,26 @@ public class KrakenWebSocketClient extends WebSocketClient {
      */
     public void subscribeToBalances(String clientId, String apiKey, String apiSecret) {
         try {
-            log.info("📡 Subscribing client {} to Kraken Futures WebSocket", clientId);
+            log.info("📡 Subscribing client {} to Kraken Spot WebSocket", clientId);
 
-            // Kraken Futures doesn't use token-based auth for WebSocket
-            // Authentication is done via API key/secret in the subscribe message
+            // For Spot API, we need to get a token first
+            log.info("🎫 Getting WebSocket token for client {}", clientId);
 
-            // Store subscription info (no token needed for Futures)
-            activeSubscriptions.put(clientId, new ClientSubscription(clientId, apiKey, apiSecret, null));
+            String token = tokenService.getWebSocketToken(apiKey, apiSecret);
+
+            if (token == null || token.isEmpty()) {
+                log.error("❌ Failed to get WebSocket token for client {}", clientId);
+                return;
+            }
+
+            log.info("✅ Got WebSocket token for client {}", clientId);
+
+            // Store subscription info WITH token for Spot API
+            activeSubscriptions.put(clientId, new ClientSubscription(clientId, apiKey, apiSecret, token));
 
             if (isConnected) {
-                // Send subscription request with API credentials
-                sendAuthenticatedSubscription(clientId, apiKey, apiSecret);
+                // Send subscription request with token (for Spot)
+                sendSubscriptionRequest(clientId, token);
             } else {
                 // Connect if not connected
                 log.info("🔌 Connecting to WebSocket...");
@@ -201,36 +224,7 @@ public class KrakenWebSocketClient extends WebSocketClient {
         return objectMapper.writeValueAsString(token);
     }
 
-    /**
-     * Send authenticated subscription for Kraken Futures
-     */
-    private void sendAuthenticatedSubscription(String clientId, String apiKey, String apiSecret) {
-        try {
-            // For Kraken Futures, we don't need a token - use API key/secret directly
-            // The Futures API uses different authentication mechanism
-
-            Map<String, Object> subscribe = new HashMap<>();
-            subscribe.put("method", "subscribe");
-            subscribe.put("feed", "balances");
-            subscribe.put("api_key", apiKey);
-
-            // Generate nonce and signature
-            String nonce = String.valueOf(System.currentTimeMillis());
-            String message = nonce + "subscribe" + "balances";
-            String signature = generateSignature(apiSecret, message);
-
-            subscribe.put("nonce", nonce);
-            subscribe.put("signature", signature);
-            subscribe.put("req_id", generateReqId());
-
-            String jsonMessage = objectMapper.writeValueAsString(subscribe);
-            log.info("📤 Sending authenticated subscription for client: {}", clientId);
-            this.send(jsonMessage);
-
-        } catch (Exception e) {
-            log.error("❌ Failed to send authenticated subscription for client {}: {}", clientId, e.getMessage());
-        }
-    }
+    // Removed sendAuthenticatedSubscription - not used for Spot API
 
     /**
      * Generate HMAC signature for Kraken Futures
@@ -250,28 +244,48 @@ public class KrakenWebSocketClient extends WebSocketClient {
     }
 
     /**
-     * Send subscription request for a client using token (for Spot API, not Futures)
+     * Send subscription request for a client using token (for Spot API)
      */
     private void sendSubscriptionRequest(String clientId, String token) {
         try {
-            // Subscribe to multiple private channels with token
-            List<String> channels = Arrays.asList("balances", "openOrders", "ownTrades");
+            // Format for Spot WebSocket V2 is different:
+            // {"event": "subscribe", "subscription": {"name": "balances", "token": "TOKEN"}}
 
-            for (String channel : channels) {
-                Map<String, Object> subscribe = new HashMap<>();
-                subscribe.put("method", "subscribe");
-                subscribe.put("params", Map.of(
-                    "channel", channel,
-                    "token", token,  // Use token for authentication
-                    "snapshot", true
-                ));
-                subscribe.put("req_id", generateReqId());
+            // 1. Subscribe to balances for real-time monitoring
+            Map<String, Object> balancesSub = new HashMap<>();
+            balancesSub.put("event", "subscribe");
+            Map<String, Object> balancesSubscription = new HashMap<>();
+            balancesSubscription.put("name", "balances");
+            balancesSubscription.put("token", token);
+            balancesSub.put("subscription", balancesSubscription);
 
-                String message = objectMapper.writeValueAsString(subscribe);
-                this.send(message);
+            String balancesMessage = objectMapper.writeValueAsString(balancesSub);
+            this.send(balancesMessage);
+            log.info("📤 Subscribed to balances channel for client: {} (real-time balance monitoring)", clientId);
 
-                log.info("📤 Subscribed to {} channel for client: {} (with token)", channel, clientId);
-            }
+            // 2. Subscribe to openOrders to monitor open orders
+            Map<String, Object> ordersSub = new HashMap<>();
+            ordersSub.put("event", "subscribe");
+            Map<String, Object> ordersSubscription = new HashMap<>();
+            ordersSubscription.put("name", "openOrders");
+            ordersSubscription.put("token", token);
+            ordersSub.put("subscription", ordersSubscription);
+
+            String ordersMessage = objectMapper.writeValueAsString(ordersSub);
+            this.send(ordersMessage);
+            log.info("📤 Subscribed to openOrders channel for client: {} (for risk management)", clientId);
+
+            // 3. Subscribe to ownTrades to detect executed trades
+            Map<String, Object> tradesSub = new HashMap<>();
+            tradesSub.put("event", "subscribe");
+            Map<String, Object> tradesSubscription = new HashMap<>();
+            tradesSubscription.put("name", "ownTrades");
+            tradesSubscription.put("token", token);
+            tradesSub.put("subscription", tradesSubscription);
+
+            String tradesMessage = objectMapper.writeValueAsString(tradesSub);
+            this.send(tradesMessage);
+            log.info("📤 Subscribed to ownTrades channel for client: {} (trade execution monitoring)", clientId);
 
             isAuthenticated = true;
 
@@ -373,6 +387,36 @@ public class KrakenWebSocketClient extends WebSocketClient {
     }
 
     /**
+     * Handle subscription status messages (Spot WebSocket)
+     */
+    private void handleSubscriptionStatus(Map<String, Object> data) {
+        String status = (String) data.get("status");
+        Map<String, Object> subscription = (Map<String, Object>) data.get("subscription");
+        String channelName = subscription != null ? (String) subscription.get("name") : "unknown";
+
+        log.info("📊 Subscription status for {}: {}", channelName, status);
+
+        if ("subscribed".equals(status)) {
+            log.info("✅ Successfully subscribed to {} channel", channelName);
+        } else if ("error".equals(status)) {
+            String errorMsg = (String) data.get("errorMessage");
+            log.error("❌ Failed to subscribe to {}: {}", channelName, errorMsg);
+        }
+    }
+
+    /**
+     * Handle system status messages (Spot WebSocket)
+     */
+    private void handleSystemStatus(Map<String, Object> data) {
+        String status = (String) data.get("status");
+        log.info("📊 System status: {}", status);
+
+        if ("online".equals(status)) {
+            log.info("✅ Kraken system is online");
+        }
+    }
+
+    /**
      * Handle error messages
      */
     private void handleError(Map<String, Object> data) {
@@ -385,9 +429,21 @@ public class KrakenWebSocketClient extends WebSocketClient {
      */
     private void authenticatePendingClients() {
         for (ClientSubscription sub : activeSubscriptions.values()) {
-            // For Kraken Futures, we don't use tokens
-            // Send authenticated subscription directly
-            sendAuthenticatedSubscription(sub.getClientId(), sub.getApiKey(), sub.getApiSecret());
+            // For Spot API, we use tokens
+            if (sub.getToken() != null && !sub.getToken().isEmpty()) {
+                sendSubscriptionRequest(sub.getClientId(), sub.getToken());
+            } else {
+                log.warn("⚠️ No token for client {}, getting new token", sub.getClientId());
+                try {
+                    String token = tokenService.getWebSocketToken(sub.getApiKey(), sub.getApiSecret());
+                    if (token != null) {
+                        sub.setToken(token);
+                        sendSubscriptionRequest(sub.getClientId(), token);
+                    }
+                } catch (Exception e) {
+                    log.error("❌ Failed to get token for client {}: {}", sub.getClientId(), e.getMessage());
+                }
+            }
         }
     }
 
@@ -420,8 +476,8 @@ public class KrakenWebSocketClient extends WebSocketClient {
         private final String clientId;
         private final String apiKey;
         private final String apiSecret;
-        private final String token;
-        private final long tokenExpiry;
+        private String token;  // Not final anymore, can be updated
+        private long tokenExpiry;
 
         public ClientSubscription(String clientId, String apiKey, String apiSecret, String token) {
             this.clientId = clientId;
@@ -436,6 +492,11 @@ public class KrakenWebSocketClient extends WebSocketClient {
         public String getApiKey() { return apiKey; }
         public String getApiSecret() { return apiSecret; }
         public String getToken() { return token; }
+
+        public void setToken(String token) {
+            this.token = token;
+            this.tokenExpiry = System.currentTimeMillis() + (15 * 60 * 1000);
+        }
 
         public boolean isTokenExpired() {
             return System.currentTimeMillis() > tokenExpiry;
