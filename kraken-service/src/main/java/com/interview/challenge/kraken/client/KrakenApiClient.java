@@ -196,11 +196,90 @@ public class KrakenApiClient {
      * Place an order
      */
     public KrakenOrderResponse placeOrder(KrakenOrderRequest orderRequest, String apiKey, String apiSecret) {
+        if (apiType.equalsIgnoreCase("spot")) {
+            return placeSpotOrder(orderRequest, apiKey, apiSecret);
+        }
+        return placeFuturesOrder(orderRequest, apiKey, apiSecret);
+    }
+
+    /**
+     * Place a Spot order
+     */
+    private KrakenOrderResponse placeSpotOrder(KrakenOrderRequest orderRequest, String apiKey, String apiSecret) {
+        String path = "/0/private/AddOrder";
+        String url = spotUrl + path;
+
+        try {
+            log.info("Placing Kraken Spot order: symbol={}, side={}, qty={}",
+                    orderRequest.getSymbol(), orderRequest.getSide(), orderRequest.getOrderQty());
+
+            long nonce = System.currentTimeMillis();
+
+            // Prepare Spot order parameters
+            String postData = "nonce=" + nonce +
+                    "&pair=" + orderRequest.getSymbol().replace("/", "") +  // ETH/USD -> ETHUSD
+                    "&type=" + orderRequest.getSide().toLowerCase() +
+                    "&ordertype=market" +
+                    "&volume=" + orderRequest.getOrderQty();
+
+            // Generate Spot API signature
+            String signature = authenticator.generateSpotSignature(apiSecret, path, nonce, postData);
+
+            // Create headers for Spot API
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("API-Key", apiKey);
+            headers.set("API-Sign", signature);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            log.debug("Spot order response: {}", response.getBody());
+
+            // Parse Spot API response
+            Map<String, Object> responseBody = objectMapper.readValue(response.getBody(), Map.class);
+
+            // Check for errors
+            if (responseBody.containsKey("error") && !((List<?>) responseBody.get("error")).isEmpty()) {
+                String error = responseBody.get("error").toString();
+                log.error("Kraken Spot order error: {}", error);
+
+                KrakenOrderResponse orderResponse = new KrakenOrderResponse();
+                orderResponse.setSuccess(false);
+                orderResponse.setError(error);
+                return orderResponse;
+            }
+
+            // Extract order info
+            Map<String, Object> result = (Map<String, Object>) responseBody.get("result");
+            Map<String, List<String>> descr = (Map<String, List<String>>) result.get("descr");
+            List<String> txid = (List<String>) result.get("txid");
+
+            KrakenOrderResponse orderResponse = new KrakenOrderResponse();
+            orderResponse.setSuccess(true);
+            if (txid != null && !txid.isEmpty()) {
+                orderResponse.setOrderId(txid.get(0));
+            }
+
+            log.info("Spot order placed successfully: orderId={}", orderResponse.getOrderId());
+            return orderResponse;
+
+        } catch (Exception e) {
+            log.error("Error placing Kraken Spot order: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to place Spot order", e);
+        }
+    }
+
+    /**
+     * Place a Futures order
+     */
+    private KrakenOrderResponse placeFuturesOrder(KrakenOrderRequest orderRequest, String apiKey, String apiSecret) {
         String path = API_VERSION + "/sendorder";
         String url = getApiBaseUrl() + path;
 
         try {
-            log.info("Placing Kraken order: symbol={}, side={}, qty={}",
+            log.info("Placing Kraken Futures order: symbol={}, side={}, qty={}",
                     orderRequest.getSymbol(), orderRequest.getSide(), orderRequest.getOrderQty());
 
             // Prepare order parameters
@@ -222,16 +301,16 @@ public class KrakenApiClient {
             KrakenOrderResponse orderResponse = objectMapper.readValue(response.getBody(), KrakenOrderResponse.class);
 
             if (orderResponse.isSuccess()) {
-                log.info("Order placed successfully: orderId={}", orderResponse.getOrderId());
+                log.info("Futures order placed successfully: orderId={}", orderResponse.getOrderId());
             } else {
-                log.error("Order failed: {}", orderResponse.getError());
+                log.error("Futures order failed: {}", orderResponse.getError());
             }
 
             return orderResponse;
 
         } catch (Exception e) {
-            log.error("Error placing Kraken order: {}", e.getMessage(), e);
-            throw new KrakenApiException("Failed to place order", e);
+            log.error("Error placing Kraken Futures order: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to place Futures order", e);
         }
     }
 
@@ -239,11 +318,67 @@ public class KrakenApiClient {
      * Get open positions
      */
     public KrakenPositionsResponse getOpenPositions(String apiKey, String apiSecret) {
+        if (apiType.equalsIgnoreCase("spot")) {
+            // Spot API doesn't have positions, only open orders
+            return getSpotOpenOrders(apiKey, apiSecret);
+        }
+        return getFuturesOpenPositions(apiKey, apiSecret);
+    }
+
+    /**
+     * Get Spot open orders (Spot doesn't have positions)
+     */
+    private KrakenPositionsResponse getSpotOpenOrders(String apiKey, String apiSecret) {
+        String path = "/0/private/OpenOrders";
+        String url = spotUrl + path;
+
+        try {
+            log.info("Fetching Kraken Spot open orders");
+
+            long nonce = System.currentTimeMillis();
+            String postData = "nonce=" + nonce;
+
+            // Generate Spot API signature
+            String signature = authenticator.generateSpotSignature(apiSecret, path, nonce, postData);
+
+            // Create headers for Spot API
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("API-Key", apiKey);
+            headers.set("API-Sign", signature);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            log.debug("Spot open orders response: {}", response.getBody());
+
+            // Parse Spot API response
+            Map<String, Object> responseBody = objectMapper.readValue(response.getBody(), Map.class);
+
+            // Return empty positions response for Spot (no positions in Spot trading)
+            KrakenPositionsResponse positionsResponse = new KrakenPositionsResponse();
+            positionsResponse.setResult("success");
+            positionsResponse.setOpenPositions(new java.util.ArrayList<>());
+
+            log.info("Spot trading has no positions, only orders");
+            return positionsResponse;
+
+        } catch (Exception e) {
+            log.error("Error fetching Kraken Spot orders: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch Spot open orders", e);
+        }
+    }
+
+    /**
+     * Get Futures open positions
+     */
+    private KrakenPositionsResponse getFuturesOpenPositions(String apiKey, String apiSecret) {
         String path = API_VERSION + "/openpositions";
         String url = getApiBaseUrl() + path;
 
         try {
-            log.info("Fetching Kraken open positions");
+            log.info("Fetching Kraken Futures open positions");
 
             // Generate authentication
             String nonce = authenticator.generateNonce();
@@ -259,14 +394,14 @@ public class KrakenApiClient {
             // Parse response
             KrakenPositionsResponse positionsResponse = objectMapper.readValue(response.getBody(), KrakenPositionsResponse.class);
 
-            log.info("Found {} open positions",
+            log.info("Found {} Futures open positions",
                     positionsResponse.getOpenPositions() != null ? positionsResponse.getOpenPositions().size() : 0);
 
             return positionsResponse;
 
         } catch (Exception e) {
-            log.error("Error fetching Kraken positions: {}", e.getMessage(), e);
-            throw new KrakenApiException("Failed to fetch open positions", e);
+            log.error("Error fetching Kraken Futures positions: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch Futures open positions", e);
         }
     }
 
@@ -274,11 +409,59 @@ public class KrakenApiClient {
      * Cancel all orders
      */
     public Map<String, Object> cancelAllOrders(String apiKey, String apiSecret, String symbol) {
+        if (apiType.equalsIgnoreCase("spot")) {
+            return cancelAllSpotOrders(apiKey, apiSecret);
+        }
+        return cancelAllFuturesOrders(apiKey, apiSecret, symbol);
+    }
+
+    /**
+     * Cancel all Spot orders
+     */
+    private Map<String, Object> cancelAllSpotOrders(String apiKey, String apiSecret) {
+        String path = "/0/private/CancelAll";
+        String url = spotUrl + path;
+
+        try {
+            log.info("Cancelling all Kraken Spot orders");
+
+            long nonce = System.currentTimeMillis();
+            String postData = "nonce=" + nonce;
+
+            // Generate Spot API signature
+            String signature = authenticator.generateSpotSignature(apiSecret, path, nonce, postData);
+
+            // Create headers for Spot API
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("API-Key", apiKey);
+            headers.set("API-Sign", signature);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            // Parse response
+            Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
+
+            log.info("Cancel all Spot orders result: {}", result);
+            return result;
+
+        } catch (Exception e) {
+            log.error("Error cancelling Kraken Spot orders: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to cancel Spot orders", e);
+        }
+    }
+
+    /**
+     * Cancel all Futures orders
+     */
+    private Map<String, Object> cancelAllFuturesOrders(String apiKey, String apiSecret, String symbol) {
         String path = API_VERSION + "/cancelallorders";
         String url = getApiBaseUrl() + path;
 
         try {
-            log.info("Cancelling all Kraken orders for symbol: {}", symbol);
+            log.info("Cancelling all Kraken Futures orders for symbol: {}", symbol);
 
             // Prepare parameters
             String postData = symbol != null ? "symbol=" + symbol : "";
@@ -298,13 +481,12 @@ public class KrakenApiClient {
             // Parse response
             Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
 
-            log.info("Cancel all orders result: {}", result);
-
+            log.info("Cancel all Futures orders result: {}", result);
             return result;
 
         } catch (Exception e) {
-            log.error("Error cancelling Kraken orders: {}", e.getMessage(), e);
-            throw new KrakenApiException("Failed to cancel orders", e);
+            log.error("Error cancelling Kraken Futures orders: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to cancel Futures orders", e);
         }
     }
 
@@ -416,11 +598,21 @@ public class KrakenApiClient {
      * Test public endpoint (no authentication required)
      */
     public String testPublicEndpoint() {
-        String path = API_VERSION + "/instruments";
-        String url = getApiBaseUrl() + path;
+        String path;
+        String url;
+
+        if (apiType.equalsIgnoreCase("spot")) {
+            // Spot API public endpoint
+            path = "/0/public/Time";
+            url = spotUrl + path;
+        } else {
+            // Futures API public endpoint
+            path = API_VERSION + "/instruments";
+            url = getApiBaseUrl() + path;
+        }
 
         try {
-            log.info("Testing Kraken public endpoint: {}", url);
+            log.info("Testing Kraken {} public endpoint: {}", apiType, url);
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "KrakenService/1.0");

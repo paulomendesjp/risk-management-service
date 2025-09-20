@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 public class KrakenOrderResponse {
 
     private String result;
+    private boolean success; // Added for compatibility
 
     @JsonProperty("sendStatus")
     private SendStatus sendStatus;
