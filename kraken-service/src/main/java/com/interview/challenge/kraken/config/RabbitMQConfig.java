@@ -95,19 +95,30 @@ public class RabbitMQConfig {
         return new Queue("user.updates", true);
     }
 
+    // Direct exchange for user registrations (matching User-Service)
+    @Bean
+    public DirectExchange userRegistrationsExchange() {
+        return new DirectExchange("user.registrations", true, false);
+    }
+
+    @Bean
+    public DirectExchange userUpdatesExchange() {
+        return new DirectExchange("user.updates", true, false);
+    }
+
     @Bean
     public Binding userRegistrationsBinding() {
         return BindingBuilder
             .bind(userRegistrationsQueue())
-            .to(new DirectExchange("user.exchange"))
-            .with("registration");
+            .to(userRegistrationsExchange())
+            .with("");
     }
 
     @Bean
     public Binding userUpdatesBinding() {
         return BindingBuilder
             .bind(userUpdatesQueue())
-            .to(new DirectExchange("user.exchange"))
-            .with("update");
+            .to(userUpdatesExchange())
+            .with("");
     }
 }
