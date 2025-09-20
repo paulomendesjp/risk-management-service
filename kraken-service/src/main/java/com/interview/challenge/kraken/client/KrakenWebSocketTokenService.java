@@ -51,6 +51,7 @@ public class KrakenWebSocketTokenService {
     public String getWebSocketToken(String apiKey, String apiSecret) {
         try {
             log.info("🎫 Requesting WebSocket token from Kraken REST API");
+            log.debug("🔑 Using API Key: {}", apiKey != null ? apiKey.substring(0, Math.min(10, apiKey.length())) + "..." : "NULL");
 
             String url = krakenBaseUrl + TOKEN_ENDPOINT;
             String nonce = String.valueOf(System.currentTimeMillis());
@@ -79,6 +80,14 @@ public class KrakenWebSocketTokenService {
                 request,
                 String.class
             );
+
+            // Check response
+            if (response.getBody() == null || response.getBody().isEmpty()) {
+                log.error("❌ Empty response from Kraken API. Status: {}", response.getStatusCode());
+                throw new RuntimeException("Empty response from Kraken API");
+            }
+
+            log.debug("📋 Kraken API response: {}", response.getBody());
 
             // Parse response
             Map<String, Object> responseBody = objectMapper.readValue(response.getBody(), Map.class);

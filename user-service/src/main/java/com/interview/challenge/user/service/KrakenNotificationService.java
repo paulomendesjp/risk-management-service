@@ -3,6 +3,7 @@ package com.interview.challenge.user.service;
 import com.interview.challenge.shared.model.ClientConfiguration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,9 @@ public class KrakenNotificationService {
     @Value("${kraken.service.url:http://kraken-service:8086}")
     private String krakenServiceUrl;
 
+    @Autowired
+    private CredentialManager credentialManager;
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     /**
@@ -37,11 +41,15 @@ public class KrakenNotificationService {
         try {
             logger.info("🦑 Notifying Kraken-Service about new user: {}", user.getClientId());
 
+            // Decrypt credentials before sending
+            Map<String, String> decryptedCredentials = credentialManager.decryptCredentials(
+                user.getApiKey(), user.getApiSecret());
+
             // Prepare the request data
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("clientId", user.getClientId());
-            requestData.put("apiKey", user.getApiKey());
-            requestData.put("apiSecret", user.getApiSecret());
+            requestData.put("apiKey", decryptedCredentials.get("apiKey"));
+            requestData.put("apiSecret", decryptedCredentials.get("apiSecret"));
             requestData.put("initialBalance", user.getInitialBalance());
 
             // Add risk limits if present
