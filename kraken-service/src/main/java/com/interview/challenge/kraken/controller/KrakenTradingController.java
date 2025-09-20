@@ -45,9 +45,75 @@ public class KrakenTradingController {
     private KrakenMonitoringService monitoringService;
 
     /**
-     * Register a new Kraken user
+     * Register a new Kraken user from User-Service
+     * This endpoint is called by User-Service when a new KRAKEN user registers
      */
     @PostMapping("/users/register")
+    @Operation(summary = "Register Kraken User", description = "Called by User-Service to register a new Kraken user for monitoring")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User registered successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Map<String, String>> registerUserFromUserService(@RequestBody Map<String, Object> registrationData) {
+        log.info("🎯 Received user registration from User-Service: {}", registrationData.get("clientId"));
+
+        try {
+            String clientId = (String) registrationData.get("clientId");
+            String apiKey = (String) registrationData.get("apiKey");
+            String apiSecret = (String) registrationData.get("apiSecret");
+            Double initialBalance = ((Number) registrationData.get("initialBalance")).doubleValue();
+
+            // Extract risk limits from the request
+            com.interview.challenge.kraken.model.KrakenAccountMonitoring.RiskLimit dailyRisk = null;
+            com.interview.challenge.kraken.model.KrakenAccountMonitoring.RiskLimit maxRisk = null;
+
+            if (registrationData.containsKey("dailyRisk")) {
+                Map<String, Object> dailyRiskData = (Map<String, Object>) registrationData.get("dailyRisk");
+                dailyRisk = com.interview.challenge.kraken.model.KrakenAccountMonitoring.RiskLimit.builder()
+                    .type((String) dailyRiskData.get("type"))
+                    .value(java.math.BigDecimal.valueOf(((Number) dailyRiskData.get("value")).doubleValue()))
+                    .build();
+            }
+
+            if (registrationData.containsKey("maxRisk")) {
+                Map<String, Object> maxRiskData = (Map<String, Object>) registrationData.get("maxRisk");
+                maxRisk = com.interview.challenge.kraken.model.KrakenAccountMonitoring.RiskLimit.builder()
+                    .type((String) maxRiskData.get("type"))
+                    .value(java.math.BigDecimal.valueOf(((Number) maxRiskData.get("value")).doubleValue()))
+                    .build();
+            }
+
+            // Start monitoring for this user with risk limits
+            monitoringService.startMonitoring(
+                clientId,
+                apiKey,
+                apiSecret,
+                java.math.BigDecimal.valueOf(initialBalance),
+                dailyRisk,
+                maxRisk
+            );
+
+            log.info("✅ Kraken monitoring activated for user: {}", clientId);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("status", "success");
+            response.put("message", "Kraken monitoring started for " + clientId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to register Kraken user: {}", e.getMessage(), e);
+            Map<String, String> error = new HashMap<>();
+            error.put("status", "error");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+
+    /**
+     * Legacy Register endpoint
+     */
+    @PostMapping("/users/register-legacy")
     @Operation(summary = "Register Kraken User", description = "Register a new user with Kraken API credentials and start monitoring")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User registered successfully"),

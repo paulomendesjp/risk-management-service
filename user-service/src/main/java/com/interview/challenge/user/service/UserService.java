@@ -54,6 +54,9 @@ public class UserService {
     @Autowired
     private EventPublisher eventPublisher;
 
+    @Autowired
+    private KrakenNotificationService krakenNotificationService;
+
     @Value("${kraken.service.url:http://kraken-service:8086}")
     private String krakenServiceUrl;
 
@@ -139,10 +142,15 @@ public class UserService {
             // Save to MongoDB (Requirement: Store in MongoDB for persistence and auditing)
             ClientConfiguration savedUser = userRepository.save(user);
             logger.info(UserConstants.LOG_USER_REGISTERED, clientId, initialBalance);
-            
+
             // Publish user registration event for other services
             eventPublisher.publishUserRegistrationEvent(savedUser);
-            
+
+            // For KRAKEN users, also notify via HTTP
+            if ("KRAKEN".equalsIgnoreCase(savedUser.getExchange())) {
+                krakenNotificationService.notifyKrakenUserRegistration(savedUser);
+            }
+
             return savedUser;
             
         } catch (Exception e) {
