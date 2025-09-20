@@ -468,7 +468,8 @@ async def get_open_orders(
             api_secret=final_api_secret,
             paper_trading=True
         )
-        orders = await client.get_orders()
+        # Get all open orders (use empty list to get all open orders)
+        orders = await client.list_orders()
         await client.close()
 
         # Convert to list format expected by Java service
