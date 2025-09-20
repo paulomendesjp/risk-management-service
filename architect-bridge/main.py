@@ -471,21 +471,45 @@ async def get_open_orders(
         # Get all open orders to cancel them for risk management
         orders = []
         try:
-            # Get working orders (pending orders that need to be cancelled)
-            working_orders = await client.get_working_orders()
-            orders = working_orders if working_orders else []
-        except Exception as e:
-            logger.warning(f"[{request_id}] Could not get working orders: {e}")
-            try:
-                # Fallback: try to get account info and orders
-                accounts = await client.list_accounts()
-                if accounts:
-                    # For each account, try to get orders
-                    for account in accounts[:1]:  # Just first account
-                        account_orders = await client.get_orders_for_account(account.id) if hasattr(client, 'get_orders_for_account') else []
+            # Get accounts first, then get orders per account
+            accounts = await client.list_accounts()
+            logger.info(f"[{request_id}] Found {len(accounts)} accounts")
+
+            for account in accounts:
+                logger.info(f"[{request_id}] Checking account: {account.id}")
+                try:
+                    # Get orders for this specific account - try different approaches
+                    account_orders = []
+
+                    # Method 1: Try get_orders with account filter
+                    try:
+                        account_orders = await client.get_orders(account_id=account.id)
+                        logger.info(f"[{request_id}] Method 1 found {len(account_orders)} orders for account {account.id}")
+                    except:
+                        # Method 2: Try without account filter and filter manually
+                        try:
+                            all_orders = await client.get_orders()
+                            # Filter orders for this account if they have account info
+                            account_orders = [o for o in all_orders if hasattr(o, 'account') and o.account == account.id]
+                            logger.info(f"[{request_id}] Method 2 found {len(account_orders)} orders for account {account.id}")
+                        except Exception as e3:
+                            logger.warning(f"[{request_id}] Could not get orders for account {account.id}: {e3}")
+
+                    if account_orders:
                         orders.extend(account_orders)
+                        logger.info(f"[{request_id}] Added {len(account_orders)} orders from account {account.id}")
+
+                except Exception as account_error:
+                    logger.warning(f"[{request_id}] Error processing account {account.id}: {account_error}")
+
+        except Exception as e:
+            logger.warning(f"[{request_id}] Could not get accounts: {e}")
+            # Final fallback: try to get orders without account specification
+            try:
+                orders = await client.get_orders()
+                logger.info(f"[{request_id}] Fallback method found {len(orders)} total orders")
             except Exception as e2:
-                logger.warning(f"[{request_id}] Could not get orders via accounts: {e2}")
+                logger.warning(f"[{request_id}] All methods failed: {e2}")
 
         await client.close()
 
