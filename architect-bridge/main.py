@@ -478,14 +478,16 @@ async def get_open_orders(
             for account in accounts:
                 # Try different attributes for account ID
                 account_id = None
-                if hasattr(account, 'id'):
+                if hasattr(account, 'account'):
+                    account_id = account.account
+                elif hasattr(account, 'id'):
                     account_id = account.id
                 elif hasattr(account, 'account_id'):
                     account_id = account.account_id
                 elif hasattr(account, 'name'):
                     account_id = account.name
                 else:
-                    logger.warning(f"[{request_id}] Account object has no id attribute: {dir(account)}")
+                    logger.warning(f"[{request_id}] Account object has no known id attribute: {dir(account)}")
                     continue
 
                 logger.info(f"[{request_id}] Checking account: {account_id}")
