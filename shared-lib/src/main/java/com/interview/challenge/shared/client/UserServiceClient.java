@@ -38,4 +38,10 @@ public interface UserServiceClient {
      */
     @GetMapping("/api/users/{clientId}/credentials")
     java.util.Map<String, String> getDecryptedCredentials(@PathVariable("clientId") String clientId);
+
+    /**
+     * Get all clients
+     */
+    @GetMapping("/api/users")
+    java.util.List<ClientConfiguration> getAllClients();
 }

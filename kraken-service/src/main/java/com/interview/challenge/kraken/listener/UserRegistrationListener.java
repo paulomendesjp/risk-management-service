@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Listener para eventos de registro de usuário
@@ -33,10 +32,12 @@ public class UserRegistrationListener {
      * Escuta eventos de registro de usuário
      * Inicia monitoramento se exchange = KRAKEN
      */
-    @RabbitListener(queues = "user.registrations")
+    @RabbitListener(queues = "kraken.user.registrations")
     @Async
     public void handleUserRegistration(UserRegistrationEvent event) {
+        log.info("🎯 RECEIVED USER REGISTRATION EVENT: {}", event);
         String clientId = event.getClientId();
+        log.info("🆔 Processing registration for clientId: {}", clientId);
 
         try {
             // Buscar configuração completa do usuário para verificar o exchange
@@ -94,7 +95,7 @@ public class UserRegistrationListener {
     /**
      * Escuta eventos de atualização de limites de risco
      */
-    @RabbitListener(queues = "user.updates")
+    @RabbitListener(queues = "kraken.user.updates")
     public void handleUserUpdate(UserRegistrationEvent event) {
         String clientId = event.getClientId();
 
