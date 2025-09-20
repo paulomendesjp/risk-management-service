@@ -95,7 +95,7 @@ public class RabbitMQConfig {
         return new Queue("user.updates", true);
     }
 
-    // Direct exchange for user registrations (matching User-Service)
+    // Direct exchanges matching User-Service configuration
     @Bean
     public DirectExchange userRegistrationsExchange() {
         return new DirectExchange("user.registrations", true, false);
@@ -106,12 +106,13 @@ public class RabbitMQConfig {
         return new DirectExchange("user.updates", true, false);
     }
 
+    // Explicit bindings with empty routing key (matching User-Service behavior)
     @Bean
     public Binding userRegistrationsBinding() {
         return BindingBuilder
             .bind(userRegistrationsQueue())
             .to(userRegistrationsExchange())
-            .with("");
+            .with(""); // Empty routing key
     }
 
     @Bean
@@ -119,6 +120,6 @@ public class RabbitMQConfig {
         return BindingBuilder
             .bind(userUpdatesQueue())
             .to(userUpdatesExchange())
-            .with("");
+            .with(""); // Empty routing key
     }
 }
