@@ -111,16 +111,17 @@ public class KrakenWebSocketClient extends WebSocketClient {
      */
     public void subscribeToBalances(String clientId, String apiKey, String apiSecret) {
         try {
-            // First get WebSocket token from REST API
-            log.info("🎫 Getting WebSocket token for client: {}", clientId);
-            String token = tokenService.getWebSocketToken(apiKey, apiSecret);
+            log.info("📡 Subscribing client {} to Kraken Futures WebSocket", clientId);
 
-            // Store subscription info with token
-            activeSubscriptions.put(clientId, new ClientSubscription(clientId, apiKey, apiSecret, token));
+            // Kraken Futures doesn't use token-based auth for WebSocket
+            // Authentication is done via API key/secret in the subscribe message
+
+            // Store subscription info (no token needed for Futures)
+            activeSubscriptions.put(clientId, new ClientSubscription(clientId, apiKey, apiSecret, null));
 
             if (isConnected) {
-                // Send subscription request with token
-                sendSubscriptionRequest(clientId, token);
+                // Send subscription request with API credentials
+                sendAuthenticatedSubscription(clientId, apiKey, apiSecret);
             } else {
                 // Connect if not connected
                 log.info("🔌 Connecting to WebSocket...");
@@ -201,7 +202,55 @@ public class KrakenWebSocketClient extends WebSocketClient {
     }
 
     /**
-     * Send subscription request for a client using token
+     * Send authenticated subscription for Kraken Futures
+     */
+    private void sendAuthenticatedSubscription(String clientId, String apiKey, String apiSecret) {
+        try {
+            // For Kraken Futures, we don't need a token - use API key/secret directly
+            // The Futures API uses different authentication mechanism
+
+            Map<String, Object> subscribe = new HashMap<>();
+            subscribe.put("method", "subscribe");
+            subscribe.put("feed", "balances");
+            subscribe.put("api_key", apiKey);
+
+            // Generate nonce and signature
+            String nonce = String.valueOf(System.currentTimeMillis());
+            String message = nonce + "subscribe" + "balances";
+            String signature = generateSignature(apiSecret, message);
+
+            subscribe.put("nonce", nonce);
+            subscribe.put("signature", signature);
+            subscribe.put("req_id", generateReqId());
+
+            String jsonMessage = objectMapper.writeValueAsString(subscribe);
+            log.info("📤 Sending authenticated subscription for client: {}", clientId);
+            this.send(jsonMessage);
+
+        } catch (Exception e) {
+            log.error("❌ Failed to send authenticated subscription for client {}: {}", clientId, e.getMessage());
+        }
+    }
+
+    /**
+     * Generate HMAC signature for Kraken Futures
+     */
+    private String generateSignature(String apiSecret, String message) {
+        try {
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA512");
+            javax.crypto.spec.SecretKeySpec secretKeySpec = new javax.crypto.spec.SecretKeySpec(
+                apiSecret.getBytes(), "HmacSHA512");
+            mac.init(secretKeySpec);
+            byte[] hash = mac.doFinal(message.getBytes());
+            return java.util.Base64.getEncoder().encodeToString(hash);
+        } catch (Exception e) {
+            log.error("Failed to generate signature: {}", e.getMessage());
+            throw new RuntimeException("Failed to generate signature", e);
+        }
+    }
+
+    /**
+     * Send subscription request for a client using token (for Spot API, not Futures)
      */
     private void sendSubscriptionRequest(String clientId, String token) {
         try {
@@ -336,22 +385,9 @@ public class KrakenWebSocketClient extends WebSocketClient {
      */
     private void authenticatePendingClients() {
         for (ClientSubscription sub : activeSubscriptions.values()) {
-            // Check if token is still valid
-            if (sub.isTokenExpired()) {
-                log.warn("⏰ Token expired for client {}, getting new token", sub.getClientId());
-                try {
-                    // Get new token
-                    String newToken = tokenService.getWebSocketToken(sub.getApiKey(), sub.getApiSecret());
-                    // Update subscription with new token
-                    activeSubscriptions.put(sub.getClientId(),
-                        new ClientSubscription(sub.getClientId(), sub.getApiKey(), sub.getApiSecret(), newToken));
-                    sendSubscriptionRequest(sub.getClientId(), newToken);
-                } catch (Exception e) {
-                    log.error("Failed to refresh token for client {}: {}", sub.getClientId(), e.getMessage());
-                }
-            } else {
-                sendSubscriptionRequest(sub.getClientId(), sub.getToken());
-            }
+            // For Kraken Futures, we don't use tokens
+            // Send authenticated subscription directly
+            sendAuthenticatedSubscription(sub.getClientId(), sub.getApiKey(), sub.getApiSecret());
         }
     }
 

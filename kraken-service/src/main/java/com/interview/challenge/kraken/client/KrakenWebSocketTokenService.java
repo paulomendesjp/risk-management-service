@@ -29,10 +29,12 @@ import java.util.Map;
 @Service
 public class KrakenWebSocketTokenService {
 
-    private static final String TOKEN_ENDPOINT = "/0/private/GetWebSocketsToken";
-    private static final String API_VERSION = "0";
+    // Kraken Futures doesn't use token-based WebSocket auth
+    // It uses API key directly in the WebSocket subscription
+    private static final String TOKEN_ENDPOINT = "/api/v3/ws/token";
+    private static final String API_VERSION = "3";
 
-    @Value("${kraken.api.base-url:https://api.kraken.com}")
+    @Value("${kraken.api.base-url:https://futures.kraken.com}")
     private String krakenBaseUrl;
 
     @Autowired
