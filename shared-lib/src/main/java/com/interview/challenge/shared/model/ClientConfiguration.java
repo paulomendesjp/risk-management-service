@@ -1,5 +1,6 @@
 package com.interview.challenge.shared.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
  * - Risk Limits: Max Risk and Daily Risk
  */
 @Document(collection = "client_configurations")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ClientConfiguration {
 
     @Id

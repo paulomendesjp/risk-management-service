@@ -1,5 +1,6 @@
 package com.interview.challenge.shared.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 
 /**
@@ -9,6 +10,7 @@ import java.math.BigDecimal;
  * - Max Risk: Maximum loss threshold (absolute value or % of initial balance)
  * - Daily Risk: Daily loss threshold (absolute value or % of initial balance)
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RiskLimit {
 
     /**
