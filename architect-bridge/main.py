@@ -462,7 +462,12 @@ async def get_open_orders(
         raise HTTPException(status_code=400, detail="API credentials required")
 
     try:
-        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        client = AsyncClient(
+            api_key=final_api_key,
+            api_secret=final_api_secret,
+            paper_trading=True,
+            grpc_port=9090
+        )
         orders = await client.get_orders()
         await client.close()
 
@@ -506,7 +511,12 @@ async def cancel_order(
         raise HTTPException(status_code=400, detail="API credentials required")
 
     try:
-        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        client = AsyncClient(
+            api_key=final_api_key,
+            api_secret=final_api_secret,
+            paper_trading=True,
+            grpc_port=9090
+        )
         cancel_result = await client.cancel_order(order_id)
         await client.close()
 
@@ -543,7 +553,12 @@ async def get_positions(
         raise HTTPException(status_code=400, detail="API credentials required")
 
     try:
-        client = AsyncClient(api_key=final_api_key, api_secret=final_api_secret)
+        client = AsyncClient(
+            api_key=final_api_key,
+            api_secret=final_api_secret,
+            paper_trading=True,
+            grpc_port=9090
+        )
         positions = await client.get_positions()
         await client.close()
 
