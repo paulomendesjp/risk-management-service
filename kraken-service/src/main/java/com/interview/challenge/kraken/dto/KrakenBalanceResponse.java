@@ -24,6 +24,7 @@ import java.util.Map;
 public class KrakenBalanceResponse {
 
     private String result; // "success" or error message
+    private boolean success; // Added for compatibility
 
     @JsonProperty("serverTime")
     private String serverTime;

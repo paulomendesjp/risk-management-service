@@ -42,9 +42,15 @@ spring:
 # Kraken API Configuration
 kraken:
   api:
-    base-url: ${KRAKEN_BASE_URL:https://futures.kraken.com}
+    # Spot API
+    spot-url: ${KRAKEN_SPOT_URL:https://api.kraken.com}
+    # Futures API
+    futures-url: ${KRAKEN_FUTURES_URL:https://futures.kraken.com}
+    # Demo Futures
     demo-url: ${KRAKEN_DEMO_URL:https://demo-futures.kraken.com}
-    use-demo: ${KRAKEN_USE_DEMO:true}
+    # API type: spot (as credentials are for Spot API)
+    api-type: ${KRAKEN_API_TYPE:spot}
+    use-demo: ${KRAKEN_USE_DEMO:false}
     timeout: ${KRAKEN_TIMEOUT:30}
 
   trading:

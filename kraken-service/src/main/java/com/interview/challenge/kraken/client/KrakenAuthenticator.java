@@ -26,7 +26,46 @@ public class KrakenAuthenticator {
     private static final String SHA256 = "SHA-256";
 
     /**
-     * Generate authentication header for Kraken API
+     * Generate signature for Kraken Spot API
+     *
+     * Spot API signature format:
+     * 1. Create message = URI path + SHA256(nonce + POST data)
+     * 2. HMAC-SHA512(message) using base64 decoded API secret
+     * 3. Base64 encode the result
+     */
+    public String generateSpotSignature(String apiSecret, String path, long nonce, String postData) {
+        try {
+            // Step 1: SHA256 hash of (nonce + POST data)
+            String nonceAndData = nonce + postData;
+            MessageDigest sha256Digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = sha256Digest.digest(nonceAndData.getBytes(StandardCharsets.UTF_8));
+
+            // Step 2: Combine path + hash
+            byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
+            byte[] message = new byte[pathBytes.length + hash.length];
+            System.arraycopy(pathBytes, 0, message, 0, pathBytes.length);
+            System.arraycopy(hash, 0, message, pathBytes.length, hash.length);
+
+            // Step 3: HMAC-SHA512
+            Mac mac = Mac.getInstance("HmacSHA512");
+            SecretKeySpec secretKey = new SecretKeySpec(java.util.Base64.getDecoder().decode(apiSecret), "HmacSHA512");
+            mac.init(secretKey);
+            byte[] hmac = mac.doFinal(message);
+
+            // Step 4: Base64 encode
+            return java.util.Base64.getEncoder().encodeToString(hmac);
+
+        } catch (Exception e) {
+            log.error("Failed to generate Spot signature: {}", e.getMessage());
+            throw new RuntimeException("Failed to generate Spot signature", e);
+        }
+    }
+
+    /**
+     * Generate authentication header for Kraken Futures API
+     *
+     * For Kraken Futures the signature is:
+     * HMAC-SHA512 of (SHA256(nonce + postData))
      *
      * @param apiSecret Base64 encoded API secret
      * @param path API endpoint path (e.g., "/derivatives/api/v3/sendorder")
@@ -36,8 +75,9 @@ public class KrakenAuthenticator {
      */
     public String generateAuthent(String apiSecret, String path, String nonce, String postData) {
         try {
-            // Step 1: Create message = postData + nonce + path
-            String message = postData + nonce + path;
+            // For Kraken Futures API:
+            // Step 1: Create message = nonce + postData (NO path in the message for Futures!)
+            String message = nonce + postData;
 
             // Step 2: SHA-256 hash of the message
             byte[] sha256Hash = sha256(message);

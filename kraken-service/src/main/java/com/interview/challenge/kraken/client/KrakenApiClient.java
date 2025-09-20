@@ -14,6 +14,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * Kraken Futures API Client
@@ -24,14 +25,20 @@ import java.util.Map;
 @Component
 public class KrakenApiClient {
 
-    @Value("${kraken.api.base-url:https://futures.kraken.com}")
-    private String baseUrl;
+    @Value("${kraken.api.spot-url:https://api.kraken.com}")
+    private String spotUrl;
+
+    @Value("${kraken.api.futures-url:https://futures.kraken.com}")
+    private String futuresUrl;
 
     @Value("${kraken.api.demo-url:https://demo-futures.kraken.com}")
     private String demoUrl;
 
-    @Value("${kraken.api.use-demo:true}")
+    @Value("${kraken.api.use-demo:false}")
     private boolean useDemo;
+
+    @Value("${kraken.api.api-type:spot}")
+    private String apiType;
 
     @Value("${kraken.api.timeout:30}")
     private int timeout;
@@ -49,12 +56,16 @@ public class KrakenApiClient {
     private ObjectMapper objectMapper;
 
     private static final String API_VERSION = "/derivatives/api/v3";
+    private static final String SPOT_API_VERSION = "/0";
 
     /**
      * Get the appropriate base URL (demo or production)
      */
     private String getApiBaseUrl() {
-        return useDemo ? demoUrl : baseUrl;
+        if (apiType.equalsIgnoreCase("spot")) {
+            return spotUrl;
+        }
+        return useDemo ? demoUrl : futuresUrl;
     }
 
     /**
@@ -68,11 +79,88 @@ public class KrakenApiClient {
      * Get account balance
      */
     public KrakenBalanceResponse getAccountBalance(String apiKey, String apiSecret) {
+        if (apiType.equalsIgnoreCase("spot")) {
+            return getSpotAccountBalance(apiKey, apiSecret);
+        }
+        return getFuturesAccountBalance(apiKey, apiSecret);
+    }
+
+    /**
+     * Get Spot account balance
+     */
+    private KrakenBalanceResponse getSpotAccountBalance(String apiKey, String apiSecret) {
+        String path = "/0/private/Balance";
+        String url = spotUrl + path;
+
+        try {
+            log.info("Fetching Kraken Spot account balance");
+
+            long nonce = System.currentTimeMillis();
+            String postData = "nonce=" + nonce;
+
+            // Generate Spot API signature
+            String signature = authenticator.generateSpotSignature(apiSecret, path, nonce, postData);
+
+            // Create headers for Spot API
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("API-Key", apiKey);
+            headers.set("API-Sign", signature);
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+            // Make request
+            HttpEntity<String> entity = new HttpEntity<>(postData, headers);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+            log.debug("Spot balance response: {}", response.getBody());
+
+            // Parse Spot API response
+            Map<String, Object> responseBody = objectMapper.readValue(response.getBody(), Map.class);
+
+            // Check for errors
+            if (responseBody.containsKey("error") && !((List) responseBody.get("error")).isEmpty()) {
+                String error = responseBody.get("error").toString();
+                log.error("Kraken Spot API error: {}", error);
+                throw new KrakenApiException("Failed to get balance: " + error);
+            }
+
+            // Extract balance data
+            Map<String, String> result = (Map<String, String>) responseBody.get("result");
+
+            // Convert to our balance response format
+            KrakenBalanceResponse balanceResponse = new KrakenBalanceResponse();
+            BigDecimal totalBalance = BigDecimal.ZERO;
+
+            for (Map.Entry<String, String> entry : result.entrySet()) {
+                BigDecimal amount = new BigDecimal(entry.getValue());
+                if (amount.compareTo(BigDecimal.ZERO) > 0) {
+                    totalBalance = totalBalance.add(amount);
+                    log.debug("Asset {}: {}", entry.getKey(), amount);
+                }
+            }
+
+            balanceResponse.setTotalBalance(totalBalance);
+            balanceResponse.setAvailableBalance(totalBalance);
+            balanceResponse.setUnrealizedPnl(BigDecimal.ZERO);
+            balanceResponse.setSuccess(true);
+
+            log.info("Successfully fetched Spot balance: Total={}", totalBalance);
+            return balanceResponse;
+
+        } catch (Exception e) {
+            log.error("Error fetching Kraken Spot balance: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch Spot account balance", e);
+        }
+    }
+
+    /**
+     * Get Futures account balance
+     */
+    private KrakenBalanceResponse getFuturesAccountBalance(String apiKey, String apiSecret) {
         String path = API_VERSION + "/accounts";
         String url = getApiBaseUrl() + path;
 
         try {
-            log.info("Fetching Kraken account balance");
+            log.info("Fetching Kraken Futures account balance");
 
             // Generate authentication
             String nonce = authenticator.generateNonce();
@@ -93,14 +181,14 @@ public class KrakenApiClient {
             balanceResponse.setAvailableBalance(balanceResponse.calculateAvailableBalance());
             balanceResponse.setUnrealizedPnl(balanceResponse.calculateUnrealizedPnl());
 
-            log.info("Successfully fetched balance: Total={}, Available={}",
+            log.info("Successfully fetched Futures balance: Total={}, Available={}",
                     balanceResponse.getTotalBalance(), balanceResponse.getAvailableBalance());
 
             return balanceResponse;
 
         } catch (Exception e) {
-            log.error("Error fetching Kraken balance: {}", e.getMessage(), e);
-            throw new KrakenApiException("Failed to fetch account balance", e);
+            log.error("Error fetching Kraken Futures balance: {}", e.getMessage(), e);
+            throw new KrakenApiException("Failed to fetch Futures account balance", e);
         }
     }
 
